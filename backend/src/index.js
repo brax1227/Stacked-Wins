@@ -10,6 +10,23 @@ import { requestContext } from './middleware/requestContext.js';
 // Load environment variables
 dotenv.config();
 
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value || !String(value).trim()) {
+    // Don't log secrets; only log missing var name.
+    logger.error('Missing required environment variable', { module: 'config', name });
+    return false;
+  }
+  return true;
+}
+
+// Fail fast on critical config (prevents confusing runtime 500s)
+const hasDatabaseUrl = requireEnv('DATABASE_URL');
+const hasJwtSecret = requireEnv('JWT_SECRET');
+if (!hasDatabaseUrl || !hasJwtSecret) {
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 

@@ -135,3 +135,23 @@ export const login = async (req, res, next) => {
     next(error);
   }
 };
+
+export const me = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json({
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt?.toISOString?.() || null,
+      updatedAt: user.updatedAt?.toISOString?.() || null,
+    });
+  } catch (error) {
+    logger.error('Get me error', { module: 'auth', error: error.message, userId: req.user?.id });
+    next(error);
+  }
+};

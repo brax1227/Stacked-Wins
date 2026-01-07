@@ -12,7 +12,7 @@ RESTful API server for the Stacked Wins wellness app.
 2. **Set up environment:**
    ```bash
    cp .env.example .env
-   # Edit .env with your Firebase and JWT settings
+   # Edit .env with your Postgres and JWT settings
    ```
 
 3. **Run development server:**

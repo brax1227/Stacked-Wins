@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { mockPrisma } from './setup.js';
 
 let authRoutes;
@@ -184,6 +185,49 @@ describe('Authentication Endpoints', () => {
         .expect(400);
 
       expect(response.body.error).toBe('Email and password are required');
+    });
+  });
+
+  describe('GET /api/auth/me', () => {
+    it('should reject when no token provided', async () => {
+      if (!authRoutes) {
+        authRoutes = (await import('../src/routes/authRoutes.js')).default;
+        app.use('/api/auth', authRoutes);
+      }
+
+      const response = await request(app)
+        .get('/api/auth/me')
+        .expect(401);
+
+      expect(response.body.error).toBe('No token provided');
+    });
+
+    it('should return the current user when token is valid', async () => {
+      if (!authRoutes) {
+        authRoutes = (await import('../src/routes/authRoutes.js')).default;
+        app.use('/api/auth', authRoutes);
+      }
+
+      const token = jwt.sign({ id: 'user-123' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        email: 'me@example.com',
+        passwordHash: await bcrypt.hash('password123', 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const response = await request(app)
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          id: 'user-123',
+          email: 'me@example.com',
+        })
+      );
     });
   });
 });
