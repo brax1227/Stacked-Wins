@@ -32,7 +32,8 @@ app.get(['/health', '/api/health'], (req, res) => {
 
 // API Routes
 // IMPORTANT (ESM): static imports are evaluated before this module's top-level code runs.
-// So we use dynamic imports to ensure dotenv has loaded before routes/controllers (and Firebase) initialize.
+// So we use dynamic imports to ensure dotenv has loaded before routes/controllers initialize
+// (e.g. Prisma reads DATABASE_URL from env).
 const authRoutes = (await import('./routes/authRoutes.js')).default;
 const assessmentRoutes = (await import('./routes/assessmentRoutes.js')).default;
 const planRoutes = (await import('./routes/planRoutes.js')).default;

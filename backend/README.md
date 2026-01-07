@@ -60,13 +60,6 @@ See `.env.example` for required variables.
 
 **IMPORTANT:** Never commit `.env` file. Use GCP Secret Manager in production.
 
-### Auth mode
-
-This backend supports two token-verification modes (selected by `AUTH_MODE`):
-
-- **jwt** (default): backend issues and verifies JWTs
-- **firebase**: backend verifies Firebase ID tokens
-
 ## Database
 
 Uses **PostgreSQL** (via Prisma). Users are stored in the `users` table with bcrypt password hashes.

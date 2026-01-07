@@ -5,5 +5,3 @@ node_modules/
 dist/
 coverage/
 .prisma/
-firebase-service-account.json
-firebase-service-account.json
