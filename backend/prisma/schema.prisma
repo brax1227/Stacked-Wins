@@ -1,0 +1,217 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  passwordHash String @map("password_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  assessment    Assessment?
+  growthPlans   GrowthPlan[]
+  dailyCheckIns DailyCheckIn[]
+  coachChats   CoachChat[]
+  progressMetrics ProgressMetrics?
+  journalEntries JournalEntry[]
+  feedback      Feedback[]
+  
+  @@map("users")
+}
+
+model Assessment {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Mental baseline
+  stressLevel      Int      @map("stress_level")
+  anxietyLevel     Int      @map("anxiety_level")
+  moodStability    Int      @map("mood_stability")
+  
+  // Sleep & energy
+  sleepQuality     Int      @map("sleep_quality")
+  sleepHours       Float    @map("sleep_hours")
+  
+  // Time availability
+  weekdayMinutes   Int      @map("weekday_minutes")
+  weekendMinutes   Int      @map("weekend_minutes")
+  
+  // Goals & values
+  goals            String[] // Array of goal strings
+  values           String[] // Array of value strings
+  currentStruggles String[] @map("current_struggles")
+  
+  // Preferences
+  preferredTone    String   @map("preferred_tone") // 'steady' | 'firm' | 'gentle'
+  
+  completedAt      DateTime @default(now()) @map("completed_at")
+  
+  @@map("assessments")
+}
+
+model GrowthPlan {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  vision      String
+  intensity   String   // 'low' | 'standard' | 'high'
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  milestones  Milestone[]
+  tasks       Task[]
+  
+  @@map("growth_plans")
+}
+
+model Milestone {
+  id          String   @id @default(uuid())
+  planId      String
+  plan        GrowthPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String
+  targetDate  DateTime @map("target_date")
+  progress    Int      @default(0) // 0-100
+  completedAt DateTime? @map("completed_at")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  journalEntries JournalEntry[]
+  
+  @@map("milestones")
+}
+
+model Task {
+  id              String   @id @default(uuid())
+  planId          String
+  plan            GrowthPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  estimatedMinutes Int     @map("estimated_minutes")
+  isAnchorWin     Boolean  @default(false) @map("is_anchor_win")
+  category        String   // 'mental' | 'physical' | 'purpose' | 'routine'
+  order           Int
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  completions     TaskCompletion[]
+  
+  @@map("tasks")
+}
+
+model DailyCheckIn {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  date          DateTime @db.Date
+  energy        Int      // 1-10
+  stress        Int      // 1-10
+  sleepQuality  Int?     @map("sleep_quality") // 1-10
+  
+  reflection    String?
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  taskCompletions TaskCompletion[]
+  
+  @@unique([userId, date])
+  @@map("daily_checkins")
+}
+
+model TaskCompletion {
+  id            String   @id @default(uuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  checkInId     String
+  checkIn       DailyCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  
+  completedAt   DateTime @default(now()) @map("completed_at")
+  
+  @@map("task_completions")
+}
+
+model CoachChat {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  message   String
+  response  String
+  role      String   // 'user' | 'assistant'
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("coach_chats")
+}
+
+model ProgressMetrics {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  winsStacked       Int      @default(0) @map("wins_stacked")
+  consistencyRate   Float    @default(0) @map("consistency_rate") // 0-100
+  baselineStreak    Int      @default(0) @map("baseline_streak")
+  recoveryStrength  Int      @default(0) @map("recovery_streak")
+  
+  lastUpdated       DateTime @default(now()) @updatedAt @map("last_updated")
+  
+  @@map("progress_metrics")
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String?
+  content     String   @db.Text
+  mood        String?  // 'grateful' | 'reflective' | 'motivated' | 'challenged' | 'proud' | 'neutral'
+  tags        String[] // User-defined tags
+  
+  // Optional links
+  milestoneId String?  @map("milestone_id")
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("journal_entries")
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        String   // 'bug' | 'feature' | 'improvement' | 'general'
+  title       String?
+  message     String   @db.Text
+  rating      Int?     // 1-5 stars (optional)
+  
+  status      String   @default("new") // 'new' | 'reviewed' | 'in_progress' | 'resolved'
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("feedback")
+}
