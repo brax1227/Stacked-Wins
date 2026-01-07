@@ -169,11 +169,10 @@ export const DailyPlanPage = () => {
 
         {/* Progress Ring */}
         <div className="flex justify-center">
-          <div className="relative">
+          <div className="flex flex-col items-center gap-2">
             <ProgressRing progress={progress} size={140} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-3xl font-bold text-gray-900">{completedCount}</div>
-              <div className="text-sm text-gray-600">of {totalCount} wins</div>
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-900">{completedCount}</span> of {totalCount} wins
             </div>
           </div>
         </div>
