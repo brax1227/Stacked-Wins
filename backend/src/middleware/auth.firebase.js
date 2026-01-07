@@ -1,4 +1,4 @@
-import { auth } from '../utils/firebase.js';
+import admin from '../utils/firebase.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
  */
 export const authenticate = async (req, res, next) => {
   try {
+    const auth = admin.auth();
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

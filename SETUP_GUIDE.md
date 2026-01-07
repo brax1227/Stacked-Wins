@@ -44,7 +44,14 @@ Before you begin, ensure you have:
 
 4. **Edit `.env` file:**
    ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/stacked_wins?schema=public"
+   # Prisma connection string for Postgres.
+   #
+   # If your local Postgres uses peer auth over the unix socket (common on Linux),
+   # prefer the socket-based URL:
+   DATABASE_URL="postgresql://USER@localhost:5432/stacked_wins?host=/var/run/postgresql&schema=public"
+   #
+   # If you prefer TCP (password-based), use:
+   # DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/stacked_wins?schema=public"
    JWT_SECRET="your-super-secret-jwt-key-change-in-production"
    OPENAI_API_KEY="sk-your-openai-api-key"
    PORT=3001

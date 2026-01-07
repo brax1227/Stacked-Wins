@@ -1,6 +1,3 @@
-import { authenticate as jwtAuthenticate } from './auth.jwt.js';
-import { authenticate as firebaseAuthenticate } from './auth.firebase.js';
-
 /**
  * Auth selector middleware (env-driven)
  *
@@ -15,6 +12,16 @@ import { authenticate as firebaseAuthenticate } from './auth.firebase.js';
 export const authenticate = (req, res, next) => {
   const mode = (process.env.AUTH_MODE || 'jwt').toLowerCase();
 
-  if (mode === 'firebase') return firebaseAuthenticate(req, res, next);
-  return jwtAuthenticate(req, res, next);
+  // IMPORTANT (ESM): Avoid static imports of optional auth backends.
+  // This repo may run in Postgres-only mode without Firebase configured.
+  if (mode === 'firebase') {
+    import('./auth.firebase.js')
+      .then(({ authenticate: firebaseAuthenticate }) => firebaseAuthenticate(req, res, next))
+      .catch((err) => next(err));
+    return;
+  }
+
+  import('./auth.jwt.js')
+    .then(({ authenticate: jwtAuthenticate }) => jwtAuthenticate(req, res, next))
+    .catch((err) => next(err));
 };
