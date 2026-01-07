@@ -2,51 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import bcrypt from 'bcrypt';
-
-// Mock Firestore (Firebase Auth is no longer used)
-const mockDb = {
-  _usersByEmail: new Map(),
-  collection: jest.fn(() => ({
-    where: jest.fn((field, op, value) => ({
-      limit: jest.fn(() => ({
-        get: jest.fn(async () => {
-          const doc = mockDb._usersByEmail.get(value) || null;
-          return doc
-            ? {
-                empty: false,
-                docs: [
-                  {
-                    id: doc.id,
-                    data: () => doc.data,
-                  },
-                ],
-              }
-            : { empty: true, docs: [] };
-        }),
-      })),
-    })),
-    doc: jest.fn((id) => ({
-      set: jest.fn(async (data) => {
-        mockDb._lastDocId = id;
-        mockDb._lastSetData = data;
-        mockDb._usersByEmail.set(data.email, { id, data });
-      }),
-    })),
-  })),
-};
-
-const mockAdminDefault = {
-  firestore: {
-    Timestamp: {
-      now: () => ({ toDate: () => new Date() }),
-    },
-  },
-};
-
-jest.unstable_mockModule('../src/utils/firebase.js', () => ({
-  db: mockDb,
-  default: mockAdminDefault,
-}));
+import { mockPrisma } from './setup.js';
 
 let authRoutes;
 
@@ -57,7 +13,6 @@ app.use(express.json());
 describe('Authentication Endpoints', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDb._usersByEmail.clear();
     process.env.JWT_SECRET = 'test-secret';
     process.env.JWT_EXPIRES_IN = '7d';
   });
@@ -73,6 +28,15 @@ describe('Authentication Endpoints', () => {
         authRoutes = (await import('../src/routes/authRoutes.js')).default;
         app.use('/api/auth', authRoutes);
       }
+
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'user-123',
+        email: userData.email,
+        passwordHash: await bcrypt.hash(userData.password, 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const response = await request(app)
         .post('/api/auth/register')
@@ -95,16 +59,12 @@ describe('Authentication Endpoints', () => {
         app.use('/api/auth', authRoutes);
       }
 
-      // Seed existing user in mock Firestore
-      const passwordHash = await bcrypt.hash('password123', 10);
-      mockDb._usersByEmail.set('existing@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'existing-user',
-        data: {
-          email: 'existing@example.com',
-          passwordHash,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: 'existing@example.com',
+        passwordHash: await bcrypt.hash('password123', 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const response = await request(app)
@@ -153,14 +113,12 @@ describe('Authentication Endpoints', () => {
         app.use('/api/auth', authRoutes);
       }
 
-      mockDb._usersByEmail.set('test@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
-        data: {
-          email: loginData.email,
-          passwordHash: hashedPassword,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: loginData.email,
+        passwordHash: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const response = await request(app)
@@ -178,6 +136,8 @@ describe('Authentication Endpoints', () => {
         authRoutes = (await import('../src/routes/authRoutes.js')).default;
         app.use('/api/auth', authRoutes);
       }
+
+      mockPrisma.user.findUnique.mockResolvedValue(null);
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -198,14 +158,12 @@ describe('Authentication Endpoints', () => {
         app.use('/api/auth', authRoutes);
       }
 
-      mockDb._usersByEmail.set('test@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
-        data: {
-          email: 'test@example.com',
-          passwordHash: hashedPassword,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: 'test@example.com',
+        passwordHash: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const response = await request(app)

@@ -1,14 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import { db } from '../utils/firebase.js';
-import adminInstance from '../utils/firebase.js';
+import prisma from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
-
-// Get Firestore Timestamp - use the default export (admin instance) from firebase utils
-const getTimestamp = () => {
-  return adminInstance.firestore.Timestamp.now();
-};
 
 const generateToken = (userId) => {
   return jwt.sign(
@@ -22,15 +15,8 @@ const normalizeEmail = (email) => (email || '').trim().toLowerCase();
 
 async function findUserByEmail(email) {
   const normalized = normalizeEmail(email);
-  const snapshot = await db.collection('users')
-    .where('email', '==', normalized)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) return null;
-
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() };
+  if (!normalized) return null;
+  return prisma.user.findUnique({ where: { email: normalized } });
 }
 
 export const register = async (req, res, next) => {
@@ -39,6 +25,7 @@ export const register = async (req, res, next) => {
 
   try {
     const normalizedEmail = normalizeEmail(email);
+    const log = (req.logger || logger).child({ module: 'auth' });
 
     // Validation
     if (!normalizedEmail || !password) {
@@ -49,58 +36,56 @@ export const register = async (req, res, next) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    // Check if user exists (Firestore is source of truth)
+    // Check if user exists (Postgres is source of truth)
     const existing = await findUserByEmail(normalizedEmail);
     if (existing) {
       return res.status(409).json({
         error: 'User already exists',
-        ...(process.env.NODE_ENV === 'development' && {
-          existingUser: {
-            id: existing.id,
-            email: existing.email,
-            createdAt: existing.createdAt?.toDate?.()?.toISOString?.() || null,
-          },
-        }),
       });
     }
 
-    const userId = crypto.randomUUID();
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user document in Firestore
-    const userData = {
-      email: normalizedEmail,
-      passwordHash,
-      createdAt: getTimestamp(),
-      updatedAt: getTimestamp(),
-    };
-
-    await db.collection('users').doc(userId).set(userData);
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+        },
+      });
+    } catch (err) {
+      // Prisma unique constraint race
+      if (err?.code === 'P2002') {
+        return res.status(409).json({ error: 'User already exists' });
+      }
+      throw err;
+    }
 
     // Generate token
-    const token = generateToken(userId);
+    const token = generateToken(user.id);
 
-    logger.info('User registered', { module: 'auth', userId, email: normalizedEmail });
+    log.info('User registered', { userId: user.id, email: normalizedEmail, correlationId: req.correlationId });
 
     res.status(201).json({
       token,
       user: {
-        id: userId,
+        id: user.id,
         email: normalizedEmail,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: user.createdAt?.toISOString?.() || new Date().toISOString(),
+        updatedAt: user.updatedAt?.toISOString?.() || new Date().toISOString(),
       },
     });
   } catch (error) {
-    logger.error('Registration error', { 
-      module: 'auth', 
+    logger.error('Registration error', {
+      module: 'auth',
       error: error.message, 
       code: error.code,
       stack: error.stack 
     });
 
     // In development, return more error details
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'development') {
       return res.status(500).json({ 
         error: error.message || 'Registration failed',
         code: error.code,
@@ -116,6 +101,7 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     const normalizedEmail = normalizeEmail(email);
+    const log = (req.logger || logger).child({ module: 'auth' });
 
     // Validation
     if (!normalizedEmail || !password) {
@@ -133,15 +119,15 @@ export const login = async (req, res, next) => {
     }
 
     const token = generateToken(user.id);
-    logger.info('User logged in', { module: 'auth', userId: user.id, email: normalizedEmail });
+    log.info('User logged in', { userId: user.id, email: normalizedEmail, correlationId: req.correlationId });
 
     return res.status(200).json({
       token,
       user: {
         id: user.id,
         email: normalizedEmail,
-        createdAt: user.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString(),
-        updatedAt: user.updatedAt?.toDate?.()?.toISOString?.() || new Date().toISOString(),
+        createdAt: user.createdAt?.toISOString?.() || new Date().toISOString(),
+        updatedAt: user.updatedAt?.toISOString?.() || new Date().toISOString(),
       },
     });
   } catch (error) {

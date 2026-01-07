@@ -58,19 +58,25 @@ const mockPrisma = {
   $disconnect: jest.fn(),
 };
 
-// Mock Prisma module
-jest.unstable_mockModule('../src/utils/prisma.js', () => ({
+// Mock Prisma module (use absolute path to avoid moduleNameMapper quirks)
+const prismaModulePath = new URL('../src/utils/prisma.js', import.meta.url).pathname;
+jest.unstable_mockModule(prismaModulePath, () => ({
   default: mockPrisma,
 }));
 
-// Mock logger
-jest.unstable_mockModule('../src/utils/logger.js', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  },
+// Mock logger (must include .child() because controllers may call it)
+const loggerModulePath = new URL('../src/utils/logger.js', import.meta.url).pathname;
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+  child: jest.fn(function child() {
+    return mockLogger;
+  }),
+};
+jest.unstable_mockModule(loggerModulePath, () => ({
+  logger: mockLogger,
 }));
 
 // Mock OpenAI

@@ -69,7 +69,7 @@ This backend supports two token-verification modes (selected by `AUTH_MODE`):
 
 ## Database
 
-Uses **Firebase Firestore** for app data and **local JWT auth** (users stored in Firestore with bcrypt hashes).
+Uses **PostgreSQL** (via Prisma). Users are stored in the `users` table with bcrypt password hashes.
 
 ## Testing
 

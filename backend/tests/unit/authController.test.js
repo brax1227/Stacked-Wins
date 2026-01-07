@@ -1,57 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll, jest } from '@jest/globals';
 import bcrypt from 'bcrypt';
-
-// Create mock Firestore - must be defined before mocking
-const mockDb = {
-  _usersByEmail: new Map(),
-  collection: jest.fn(() => ({
-    where: jest.fn((field, op, value) => ({
-      limit: jest.fn(() => ({
-        get: jest.fn(async () => {
-          const doc = mockDb._usersByEmail.get(value) || null;
-          return doc
-            ? {
-                empty: false,
-                docs: [
-                  {
-                    id: doc.id,
-                    data: () => doc.data,
-                  },
-                ],
-              }
-            : { empty: true, docs: [] };
-        }),
-      })),
-    })),
-    doc: jest.fn((id) => ({
-      set: jest.fn(async (data) => {
-        mockDb._usersByEmail.set(data.email, { id, data });
-      }),
-    })),
-  })),
-};
-
-const mockAdminDefault = {
-  firestore: {
-    Timestamp: {
-      now: () => ({ toDate: () => new Date() }),
-    },
-  },
-};
-
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-};
-
-// Mock modules BEFORE any imports - paths relative to test file
-jest.unstable_mockModule('../../src/utils/firebase.js', () => ({
-  db: mockDb,
-  default: mockAdminDefault,
-}));
-
-// Logger is mocked globally via tests/setup.js
+import { mockPrisma } from '../setup.js';
 
 // Import modules after mocking
 let register, login;
@@ -73,7 +22,6 @@ beforeAll(async () => {
 describe('Auth Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDb._usersByEmail.clear();
     process.env.JWT_SECRET = 'test-secret';
     process.env.JWT_EXPIRES_IN = '7d';
   });
@@ -88,6 +36,15 @@ describe('Auth Controller', () => {
       });
       const res = createMockResponse();
       const next = createMockNext();
+
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'user-123',
+        email: 'test@example.com',
+        passwordHash: await bcrypt.hash('password123', 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       await register(req, res, next);
 
@@ -112,15 +69,12 @@ describe('Auth Controller', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      const passwordHash = await bcrypt.hash('password123', 10);
-      mockDb._usersByEmail.set('existing@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'existing-user',
-        data: {
-          email: 'existing@example.com',
-          passwordHash,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: 'existing@example.com',
+        passwordHash: await bcrypt.hash('password123', 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await register(req, res, next);
@@ -164,14 +118,12 @@ describe('Auth Controller', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      mockDb._usersByEmail.set('test@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
-        data: {
-          email: 'test@example.com',
-          passwordHash: hashedPassword,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: 'test@example.com',
+        passwordHash: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await login(req, res, next);
@@ -206,15 +158,12 @@ describe('Auth Controller', () => {
       const res = createMockResponse();
       const next = createMockNext();
 
-      const hashedPassword = await bcrypt.hash('correctpassword', 10);
-      mockDb._usersByEmail.set('test@example.com', {
+      mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
-        data: {
-          email: 'test@example.com',
-          passwordHash: hashedPassword,
-          createdAt: { toDate: () => new Date() },
-          updatedAt: { toDate: () => new Date() },
-        },
+        email: 'test@example.com',
+        passwordHash: await bcrypt.hash('correctpassword', 10),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await login(req, res, next);
