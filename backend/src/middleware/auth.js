@@ -1,26 +1,20 @@
-import jwt from 'jsonwebtoken';
-import { logger } from '../utils/logger.js';
+import { authenticate as jwtAuthenticate } from './auth.jwt.js';
+import { authenticate as firebaseAuthenticate } from './auth.firebase.js';
 
+/**
+ * Auth selector middleware (env-driven)
+ *
+ * AUTH_MODE:
+ * - jwt      (default): verifies locally-issued JWTs (Authorization: Bearer <jwt>)
+ * - firebase          : verifies Firebase ID tokens (Authorization: Bearer <idToken>)
+ *
+ * Why:
+ * - This repo currently contains both implementations; this makes the active
+ *   behavior explicit and configurable without code changes.
+ */
 export const authenticate = (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
+  const mode = (process.env.AUTH_MODE || 'jwt').toLowerCase();
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
-      next();
-    } catch (err) {
-      logger.warn('Invalid token', { module: 'auth', error: err.message });
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-  } catch (error) {
-    logger.error('Auth middleware error', { module: 'auth', error: error.message });
-    return res.status(500).json({ error: 'Authentication error' });
-  }
+  if (mode === 'firebase') return firebaseAuthenticate(req, res, next);
+  return jwtAuthenticate(req, res, next);
 };

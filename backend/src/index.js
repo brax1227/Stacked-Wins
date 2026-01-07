@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
+import { requestContext } from './middleware/requestContext.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +19,7 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:5173',
   credentials: true
 }));
+app.use(requestContext);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(rateLimiter);
