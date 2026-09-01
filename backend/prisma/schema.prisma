@@ -25,6 +25,7 @@ model User {
   progressMetrics ProgressMetrics?
   journalEntries JournalEntry[]
   feedback      Feedback[]
+  stackItems    StackItem[]
   
   @@map("users")
 }
@@ -214,4 +215,45 @@ model Feedback {
   updatedAt   DateTime @updatedAt @map("updated_at")
   
   @@map("feedback")
+}
+
+/// A single thing the user is carrying, dumped out of their head.
+///
+/// The core of the product: the user brain-dumps everything into their stack,
+/// and the app hands back exactly one card at a time. Deliberately has no
+/// due dates, priorities, categories or estimates -- structure is a tax
+/// charged when the user has the least to give. See PROBLEM.md.
+model StackItem {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title           String   @db.Text
+
+  /// 'open' | 'done' | 'dropped' | 'split'
+  /// 'split' means it was broken into children and is no longer dealt itself.
+  status          String   @default("open")
+
+  /// Queue order. Lower is dealt first. "Not now" sends a card to the back by
+  /// giving it a position above the current max; split pieces go to the front.
+  position        Float
+
+  /// Set by "Not today". The card is skipped until this date passes.
+  snoozedUntil    DateTime? @map("snoozed_until") @db.Date
+
+  /// How many times "Not now" has been used on this card. A card that keeps
+  /// getting pushed is usually too big -- we offer to split it.
+  pushCount       Int      @default(0) @map("push_count")
+
+  /// Set when this card came out of a "Too big" split.
+  parentId        String?  @map("parent_id")
+  parent          StackItem? @relation("StackItemSplit", fields: [parentId], references: [id], onDelete: SetNull)
+  children        StackItem[] @relation("StackItemSplit")
+
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, status, position])
+  @@map("stack_items")
 }

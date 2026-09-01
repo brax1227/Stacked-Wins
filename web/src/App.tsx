@@ -3,6 +3,9 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { NowPage } from './pages/NowPage';
+import { DumpPage } from './pages/DumpPage';
+import { StackPage } from './pages/StackPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { DailyPlanPage } from './pages/DailyPlanPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -19,14 +22,39 @@ function App() {
         {/* Public routes */}
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/daily-plan" replace /> : <LoginPage />}
+          element={isAuthenticated ? <Navigate to="/now" replace /> : <LoginPage />}
         />
         <Route
           path="/register"
-          element={isAuthenticated ? <Navigate to="/daily-plan" replace /> : <RegisterPage />}
+          element={isAuthenticated ? <Navigate to="/now" replace /> : <RegisterPage />}
         />
 
         {/* Protected routes */}
+        {/* The stack: dump it out, then one card at a time. */}
+        <Route
+          path="/now"
+          element={
+            <ProtectedRoute>
+              <NowPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dump"
+          element={
+            <ProtectedRoute>
+              <DumpPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/stack"
+          element={
+            <ProtectedRoute>
+              <StackPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/onboarding"
           element={
@@ -65,7 +93,7 @@ function App() {
         <Route
           path="/"
           element={
-            <Navigate to={isAuthenticated ? '/daily-plan' : '/login'} replace />
+            <Navigate to={isAuthenticated ? '/now' : '/login'} replace />
           }
         />
       </Routes>

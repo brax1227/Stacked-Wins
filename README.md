@@ -1,8 +1,23 @@
-# Stacked Wins — Wellness App
+# Stacked Wins
 
 > Small wins build strong foundations
 
-A mobile and web application focused on mental wellness, self-improvement, habit-building, and identity-level growth. Helps users define meaningful long-term goals, break them into tiny daily actions, and stack small wins over time.
+**The problem:** having a lot to do, holding all of it in your head, and
+freezing — because thinking about the pile costs as much as doing something,
+so you stop looking and nothing gets done.
+
+**The app:** you dump everything out of your head in one box, and it hands you
+back exactly one thing at a time. Clear it, that's a win. Wins stack.
+
+Three screens, and that's the whole thing:
+
+| Screen | Job |
+|---|---|
+| **Dump** (`/dump`) | Get it out of your head. One thing per line, no categories, no dates, no priorities. |
+| **Now** (`/now`) | See one card. Big. Four moves: Done, Not now, Not today, Too big. Nothing else on screen. |
+| **Everything** (`/stack`) | The full list. Always reachable, never the default — a list on screen is the overwhelm we just removed. |
+
+📄 The problem statement this is built against: **[PROBLEM.md](./PROBLEM.md)**
 
 ## 🎯 Project Overview
 
@@ -17,6 +32,7 @@ A mobile and web application focused on mental wellness, self-improvement, habit
 
 ```
 Small_Wins/
+├── PROBLEM.md                 # The problem we're solving (read this first)
 ├── PRODUCT_DESIGN.md          # Complete product design document
 ├── README.md                  # This file
 ├── ARCHITECTURE.md            # Technical architecture
@@ -120,6 +136,7 @@ cd web && npm test
 
 ## 📚 Documentation
 
+- **The Problem:** See `PROBLEM.md` — the source of truth for product decisions
 - **Product Design:** See `PRODUCT_DESIGN.md`
 - **Architecture:** See `ARCHITECTURE.md`
 - **API Docs:** See `backend/README.md`
@@ -128,13 +145,13 @@ cd web && npm test
 
 ## 🎨 Design Principles
 
-1. Clarity over clutter
-2. Calm UI
-3. Masculine but soft energy
-4. No manipulation
-5. Identity-based growth
-6. Micro-wins first
-7. Respect user autonomy
+1. One thing on screen — the list is the failure state
+2. Never make them decide — choosing is thinking, thinking is the freeze
+3. Capture costs nothing — no required structure, ever
+4. Clarity over clutter
+5. Calm UI
+6. No manipulation — no streak pressure, no punishment for a bad day
+7. Respect user autonomy — the full list is always reachable
 8. Privacy-first
 
 ## 🛠️ Tech Stack Details
@@ -170,4 +187,4 @@ cd web && npm test
 
 ---
 
-**Status:** 🚧 In Development — MVP Phase
+**Status:** 🚧 In Development — core loop (dump → one card → clear) implemented

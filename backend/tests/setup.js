@@ -55,6 +55,16 @@ const mockPrisma = {
   milestone: {
     findFirst: jest.fn(),
   },
+  stackItem: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    createMany: jest.fn(),
+    update: jest.fn(),
+    aggregate: jest.fn(),
+    count: jest.fn(),
+  },
+  $transaction: jest.fn(),
   $disconnect: jest.fn(),
 };
 

@@ -1,5 +1,65 @@
 # Stacked Wins — Current To-Do List
 
+> **Direction changed.** The problem we're solving is now the one in
+> [PROBLEM.md](./PROBLEM.md): a pile held in your head that freezes you, fixed
+> by dumping it out and seeing one thing at a time. The growth-plan work below
+> is Layer 2 and is on hold — not deleted, just no longer the front door.
+
+## ✅ The Stack — core loop (done)
+
+- [x] `StackItem` model (Prisma) — no due dates, priorities or categories by design
+- [x] `POST /api/stack/dump` — brain dump, one thing per line, forgiving parsing
+- [x] `GET /api/stack/next` — exactly one card, never a list
+- [x] The four moves: `done`, `push` ("Not now"), `later` ("Not today"), `split` ("Too big")
+- [x] `GET /api/stack` + `POST /api/stack/:id/drop` — the opt-in full list
+- [x] Split hint after 3 pushes ("this might be bigger than one thing")
+- [x] Web: `/dump`, `/now`, `/stack`; `/now` is the front door after login
+- [x] Nav hidden on `/now` so the one-card screen stays a one-card screen
+- [x] Tests: 34 backend (service + endpoints), 5 web (one-card contract)
+
+## 🚧 The Stack — next up (HIGH PRIORITY)
+
+- [ ] **Get `stack_items` into the database.** Note this repo has never had a
+      migrations directory, so the first `migrate dev` baselines the *whole*
+      schema, not just this table:
+  ```bash
+  cd backend && npx prisma migrate dev --name init   # first time, creates everything
+  # or, for a scratch dev database:
+  cd backend && npx prisma db push
+  ```
+- [ ] **Cleared history screen** — `GET /api/stack?status=done` has no UI yet. This
+      is where "wins stack" becomes visible, and it's the only place a growing
+      number is a good thing.
+- [ ] **Keyboard shortcuts on `/now`** — the four moves on 1–4 or D/N/T/B. Every
+      tap saved is friction removed from the one screen that matters.
+- [ ] **Undo the last move** — a mis-tapped "Done" currently needs a trip to the
+      database. One-tap moves need a one-tap undo.
+- [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
+      Should route to `/dump` on first visit rather than showing "That's everything."
+- [ ] **iOS: the same three screens.** The one-card screen is a better fit on a
+      phone than on the web, and the phone is where the pile gets remembered.
+- [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
+      that has to wait until you open the app is a thing that stays in your head.
+
+## 🤔 The Stack — open questions
+
+- [ ] **Does "Not today" need a "not this week"?** Risk: every option added is a
+      decision, and decisions are the failure mode. Probably no.
+- [ ] **Should `/now` ever show progress?** PROBLEM.md says no — the size of the
+      pile is what freezes them. Worth testing whether *cleared today* (a number
+      that only goes up) is different enough to be safe.
+- [ ] **Recurring things.** Real, but recurrence is structure, and structure is
+      the tax we refuse to charge. Needs a design that costs the user nothing.
+- [ ] **AI split assist.** "Too big" is the highest-leverage moment in the app and
+      the one place an LLM would genuinely earn its cost. Currently manual.
+
+---
+
+## ⏸️ Layer 2 — Growth Plan (ON HOLD)
+
+Everything below was the previous direction. Kept for when a user is unfrozen
+and asking "where is this going?" — see PROBLEM.md.
+
 ## 🚧 Backend API Implementation (HIGH PRIORITY)
 
 The frontend UI is complete, but all backend endpoints need to be implemented.
@@ -141,7 +201,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ---
 
-## Current Status
+## Current Status (Layer 2)
 
 ✅ **Complete:**
 - Frontend UI (all pages)
@@ -175,7 +235,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ---
 
-**Priority Order:**
+**Priority Order (Layer 2, on hold):**
 1. Database setup
 2. Authentication (blocks everything else)
 3. Assessment + Plan generation (needed for onboarding)
