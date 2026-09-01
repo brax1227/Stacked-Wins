@@ -8,6 +8,8 @@ import {
   pushItem,
   snoozeItem,
   splitItem,
+  setKind,
+  rankItem,
   dropItem,
   updateItem,
 } from '../controllers/stackController.js';
@@ -26,6 +28,10 @@ router.post('/:id/done', authenticate, completeItem);
 router.post('/:id/push', authenticate, pushItem);
 router.post('/:id/later', authenticate, snoozeItem);
 router.post('/:id/split', authenticate, splitItem);
+
+// Lanes and ranking. Both optional -- neither ever gates getting a card.
+router.post('/:id/kind', authenticate, setKind);
+router.post('/:id/rank', authenticate, rankItem);
 router.post('/:id/drop', authenticate, dropItem);
 router.put('/:id', authenticate, updateItem);
 

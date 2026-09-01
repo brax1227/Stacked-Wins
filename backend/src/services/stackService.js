@@ -13,6 +13,27 @@ export const MAX_TITLE_LENGTH = 500;
 export const MAX_DUMP_ITEMS = 200;
 
 /**
+ * The two lanes: things you have to do, and things you want to do.
+ *
+ * One binary choice per dump session -- not a category applied per item, and
+ * never a gate. An unspecified lane falls back to 'need' so a dump can always
+ * go through without a decision.
+ */
+export const KINDS = ['need', 'want'];
+export const DEFAULT_KIND = 'need';
+
+export function normalizeKind(raw) {
+  return KINDS.includes(raw) ? raw : DEFAULT_KIND;
+}
+
+/**
+ * A lane filter for queries. `all` means both lanes.
+ */
+export function kindFilter(raw) {
+  return raw === 'all' ? {} : { kind: normalizeKind(raw) };
+}
+
+/**
  * Turn a raw brain dump into a clean list of titles.
  *
  * Accepts either a blob of text (one thing per line) or an array of strings.
@@ -79,11 +100,13 @@ export function startOfTomorrow(now = new Date()) {
 
 /**
  * The Prisma `where` for cards that can be dealt right now: still open, and
- * not sleeping off a "Not today".
+ * not sleeping off a "Not today". Pass a lane to deal from one of them, or
+ * 'all' for both.
  */
-export function askableWhere(userId, now = new Date()) {
+export function askableWhere(userId, kind = 'all', now = new Date()) {
   return {
     userId,
+    ...kindFilter(kind),
     status: 'open',
     OR: [
       { snoozedUntil: null },

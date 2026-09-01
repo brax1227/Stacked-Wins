@@ -230,12 +230,18 @@ model StackItem {
 
   title           String   @db.Text
 
+  /// 'need' | 'want' -- the two lanes. Obligations vs. the things you
+  /// actually want to do. Chosen once per dump session, not per item, and
+  /// changeable later; it must never be a gate on getting a card.
+  kind            String   @default("need")
+
   /// 'open' | 'done' | 'dropped' | 'split'
   /// 'split' means it was broken into children and is no longer dealt itself.
   status          String   @default("open")
 
-  /// Queue order. Lower is dealt first. "Not now" sends a card to the back by
-  /// giving it a position above the current max; split pieces go to the front.
+  /// Queue order within a lane. Lower is dealt first. "Not now" sends a card
+  /// to the back; split pieces go to the front; ranking swaps two cards in the
+  /// same lane. Dump order is the default -- ranking is never required.
   position        Float
 
   /// Set by "Not today". The card is skipped until this date passes.
@@ -254,6 +260,6 @@ model StackItem {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  @@index([userId, status, position])
+  @@index([userId, kind, status, position])
   @@map("stack_items")
 }

@@ -35,15 +35,21 @@ The fix the user already prescribed: **stop making them think to know.**
 Two jobs, and both have to work or neither does:
 
 1. **Get it out of the head.** Everything you're carrying, typed as fast as
-   you can, with zero structure required. No categories, no due dates, no
-   priorities, no estimates. Structure is a tax charged at the exact moment
-   the user has the least to give.
+   you can, with essentially zero structure required. No due dates, no
+   estimates, no per-item categorizing. Structure is a tax charged at the
+   exact moment the user has the least to give.
 2. **Only ever show one thing.** A full list shown all at once recreates the
    exact overwhelm we just removed — seeing 34 things is the visual version of
    thinking about 34 things. So the app holds all of it and shows exactly one.
 
-The user never chooses what to work on, because choosing is thinking, and
-thinking is the thing that breaks them.
+The user never *has to* choose what to work on, because choosing is thinking,
+and thinking is the thing that breaks them.
+
+The one structure the app does ask for is the lane — **Need to** vs **Want
+to** — because it's one choice per dump session rather than one per item, it
+defaults, and it never gates anything. Ranking exists too, but only on a
+screen you have to go looking for. See "The two lanes" and "Ranking" in
+PROBLEM.md.
 
 ### This app is NOT:
 - A to-do list (their home screen is a list; the list is our failure state)
@@ -91,8 +97,12 @@ Three screens. That's the whole app.
 
 ### 1. Dump (`/dump`) — Job 1
 
-One box. One thing per line. A button that says **Put it down**.
+One box, one lane toggle, one thing per line. A button that says **Put it
+down**.
 
+- **Need to / Want to** toggle above the box, defaulting to Need. One choice
+  for the whole dump, not one per line — dump your obligations, flip it, dump
+  the fun stuff
 - Autofocused textarea, nothing else on screen to configure
 - Forgiving parsing: blank lines, pasted bullets (`- `, `* `, `1.`, `[ ]`),
   and duplicate lines are all handled silently
@@ -102,10 +112,12 @@ One box. One thing per line. A button that says **Put it down**.
 
 ### 2. Now (`/now`) — Job 2, and the actual product
 
-One card. Large. Centered. Nothing else.
+One card. Large. Centered. Two lane tabs above it, and nothing else.
 
-- **Deliberately no remaining count on this screen.** The size of the pile is
-  exactly what freezes them; it must not leak here.
+- **Need to / Want to** tabs. The lane you were last in is remembered.
+- **Deliberately no remaining count on this screen — including on the tabs.**
+  The size of the pile is exactly what freezes them; a badge reading "17" on
+  the Need tab is the pile leaking back in.
 - Four moves, and only four:
 
 | Move | Meaning | Effect |
@@ -119,14 +131,25 @@ One card. Large. Centered. Nothing else.
   is usually several tasks wearing a trench coat. After 3 pushes the app says
   so first — *"This one keeps coming back around. It might be bigger than one
   thing."* — instead of waiting for the user to work it out.
-- Empty state is calm and finished: *"That's everything."* plus where any
-  sleeping cards went. No pressure to add more.
+- A quiet *"this belongs in Want to"* link moves a mis-filed card between
+  lanes. Kept as a link, not a fifth button — the four moves are the card's
+  whole vocabulary, and this is a correction, not a move.
+- Empty state is calm and finished: *"Nothing you have to do."* plus where any
+  sleeping cards went. If the other lane has cards, it offers them — clearing
+  your needs is the moment you've earned the want list. No pressure to add
+  more.
 - The site nav is hidden on this screen. A bar full of other places to go is
   exactly the kind of choosing it exists to remove.
 
-### 3. Everything (`/stack`) — the escape hatch
+### 3. Everything (`/stack`) — the escape hatch, and the only place ranking lives
 
-The full list, in deal order, with a **let go** action per row.
+The full list for one lane, in deal order, with per-row **↑ / ↓ / do first**
+ranking, a **→ want / → need** lane move, and **let go**.
+
+- **Ranking is quarantined here on purpose.** Ranking is itself the thinking
+  that freezes you, so dump order is the default everywhere else and nothing
+  in the app blocks on a card being ranked. It's for the moment you already
+  know something is urgent — not a planning ritual.
 
 - It's the user's data, so hiding it would be a lie
 - But nothing navigates here on its own, and you never land here
@@ -140,7 +163,7 @@ The full list, in deal order, with a **let go** action per row.
 
 1. **One thing on screen** — the list is the failure state
 2. **Never make them decide** — choosing is thinking, thinking is the freeze
-3. **Capture costs nothing** — no required structure, ever
+3. **Capture costs nothing** — the lane defaults and nothing else is required
 4. **Clarity over clutter**
 5. **Calm UI**
 6. **No manipulation** — no streak pressure, no punishment for a bad day
@@ -561,10 +584,10 @@ Show multiple signals to avoid streak obsession:
 ## MVP Priority Features
 
 ### MUST HAVE (current direction — the stack)
-1. Brain dump capture (`/dump`)
-2. One-card screen with the four moves (`/now`)
+1. Brain dump capture with the lane toggle (`/dump`)
+2. One-card screen with the four moves and the two lanes (`/now`)
 3. Split-a-card ("Too big")
-4. Full-list escape hatch (`/stack`)
+4. Full-list escape hatch with optional ranking (`/stack`)
 5. Cleared-card history
 
 ### DEFERRED (Layer 2 — the growth plan)

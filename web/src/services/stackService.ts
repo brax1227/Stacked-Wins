@@ -7,9 +7,23 @@ import api from './api';
 
 export type StackItemStatus = 'open' | 'done' | 'dropped' | 'split';
 
+/**
+ * The two lanes: things you have to do, and things you want to do.
+ * Picked once per dump session, never a gate on getting a card.
+ */
+export type StackKind = 'need' | 'want';
+
+export type RankMove = 'up' | 'down' | 'top';
+
+export const LANES: { kind: StackKind; label: string; blurb: string }[] = [
+  { kind: 'need', label: 'Need to', blurb: 'The stuff that has to get done.' },
+  { kind: 'want', label: 'Want to', blurb: "The stuff you'd actually like to do." },
+];
+
 export interface StackItem {
   id: string;
   title: string;
+  kind: StackKind;
   status: StackItemStatus;
   position: number;
   snoozedUntil?: string | null;
@@ -21,42 +35,52 @@ export interface StackItem {
 }
 
 export interface StackCounts {
-  /** Cards that can be dealt right now. */
+  /** Cards that can be dealt right now, in the requested lane. */
   remaining: number;
   /** Cards sleeping off a "Not today". */
   sleeping: number;
   /** Cards cleared, all time. */
   done: number;
+  /**
+   * Askable cards per lane. Lets an empty lane point at the other one without
+   * ever putting a number on the card screen.
+   */
+  lanes: Record<StackKind, number>;
 }
 
 export interface NextCard extends StackCounts {
-  /** Exactly one card, or null when the stack is clear. Never a list. */
+  /** Exactly one card, or null when the lane is clear. Never a list. */
   item: StackItem | null;
+  /** The lane this card came from. */
+  kind: StackKind;
   /** The card keeps getting pushed -- offer to break it down. */
   suggestSplit: boolean;
 }
 
 export const stackService = {
-  /** Job 1: get it out of the head. One thing per line. */
-  async dump(text: string): Promise<StackCounts & { added: number }> {
-    const response = await api.post('/stack/dump', { text });
+  /** Job 1: get it out of the head. One thing per line, into one lane. */
+  async dump(text: string, kind: StackKind = 'need'): Promise<StackCounts & { added: number }> {
+    const response = await api.post('/stack/dump', { text, kind });
     return response.data;
   },
 
-  async addOne(title: string): Promise<StackItem> {
-    const response = await api.post<StackItem>('/stack', { title });
+  async addOne(title: string, kind: StackKind = 'need'): Promise<StackItem> {
+    const response = await api.post<StackItem>('/stack', { title, kind });
     return response.data;
   },
 
-  /** Job 2: the whole product. One card. */
-  async getNext(): Promise<NextCard> {
-    const response = await api.get<NextCard>('/stack/next');
+  /** Job 2: the whole product. One card, from one lane. */
+  async getNext(kind: StackKind = 'need'): Promise<NextCard> {
+    const response = await api.get<NextCard>('/stack/next', { params: { kind } });
     return response.data;
   },
 
   /** The full list. Always available, never the default view. */
-  async getStack(status: StackItemStatus | 'all' = 'open'): Promise<StackCounts & { items: StackItem[] }> {
-    const response = await api.get('/stack', { params: { status } });
+  async getStack(
+    kind: StackKind | 'all' = 'need',
+    status: StackItemStatus | 'all' = 'open'
+  ): Promise<StackCounts & { items: StackItem[] }> {
+    const response = await api.get('/stack', { params: { kind, status } });
     return response.data;
   },
 
@@ -80,6 +104,18 @@ export const stackService = {
   /** "Too big" — break it down; the first piece is dealt next. */
   async split(id: string, pieces: string): Promise<{ pieces: number }> {
     const response = await api.post(`/stack/${id}/split`, { pieces });
+    return response.data;
+  },
+
+  /** Move a card between the two lanes. */
+  async setKind(id: string, kind: StackKind): Promise<StackItem> {
+    const response = await api.post<StackItem>(`/stack/${id}/kind`, { kind });
+    return response.data;
+  },
+
+  /** Order a card against its lane-mates. Always optional. */
+  async rank(id: string, move: RankMove): Promise<StackItem> {
+    const response = await api.post<StackItem>(`/stack/${id}/rank`, { move });
     return response.data;
   },
 

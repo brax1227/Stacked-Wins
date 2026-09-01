@@ -3,6 +3,8 @@ import {
   parseDump,
   normalizeTitle,
   askableWhere,
+  normalizeKind,
+  kindFilter,
   startOfToday,
   startOfTomorrow,
   shouldSuggestSplit,
@@ -95,7 +97,7 @@ describe('snooze dates', () => {
 
 describe('askableWhere', () => {
   it('asks for open cards that are not sleeping', () => {
-    const where = askableWhere('user-123', new Date('2026-03-14T22:41:00Z'));
+    const where = askableWhere('user-123', 'all', new Date('2026-03-14T22:41:00Z'));
     expect(where.userId).toBe('user-123');
     expect(where.status).toBe('open');
     // Never snoozed, or the snooze has already come due.
@@ -103,6 +105,36 @@ describe('askableWhere', () => {
       { snoozedUntil: null },
       { snoozedUntil: { lte: new Date('2026-03-14T00:00:00.000Z') } },
     ]);
+  });
+
+  it('narrows to a single lane when asked', () => {
+    expect(askableWhere('user-123', 'want').kind).toBe('want');
+    expect(askableWhere('user-123', 'need').kind).toBe('need');
+  });
+
+  it('spans both lanes for "all"', () => {
+    expect(askableWhere('user-123', 'all').kind).toBeUndefined();
+  });
+});
+
+describe('lanes', () => {
+  // The lane must never be able to reject a dump. An unrecognised value
+  // falls back rather than erroring, so capture always goes through.
+  it('falls back to need for anything unrecognised', () => {
+    expect(normalizeKind('need')).toBe('need');
+    expect(normalizeKind('want')).toBe('want');
+    expect(normalizeKind('urgent')).toBe('need');
+    expect(normalizeKind(undefined)).toBe('need');
+    expect(normalizeKind(null)).toBe('need');
+    expect(normalizeKind(7)).toBe('need');
+  });
+
+  it('builds a lane filter, and an empty one for both lanes', () => {
+    expect(kindFilter('want')).toEqual({ kind: 'want' });
+    expect(kindFilter('need')).toEqual({ kind: 'need' });
+    expect(kindFilter('all')).toEqual({});
+    // Unrecognised is not "all" -- it's the default lane.
+    expect(kindFilter('nonsense')).toEqual({ kind: 'need' });
   });
 });
 

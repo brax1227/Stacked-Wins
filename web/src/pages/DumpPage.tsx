@@ -1,23 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { stackService } from '../services/stackService';
+import { stackService, LANES } from '../services/stackService';
+import type { StackKind } from '../services/stackService';
 
 /**
  * The brain dump. Job 1: get it out of the head.
  *
- * One box, one thing per line, no categories, no due dates, no priorities,
- * no estimates. Structure is a tax charged at the exact moment the user has
- * the least to give. The only things that matter here are speed and
- * completeness. See PROBLEM.md.
+ * One box, one thing per line, no due dates, no priorities, no estimates.
+ * Structure is a tax charged at the exact moment the user has the least to
+ * give. The only things that matter here are speed and completeness.
+ *
+ * The lane toggle is the single exception, and it's cheap on purpose: one
+ * choice for the whole dump rather than one per item, and it defaults, so it
+ * can be ignored entirely. See PROBLEM.md.
  */
 export const DumpPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
+  const [kind, setKind] = useState<StackKind>('need');
 
   const dump = useMutation({
-    mutationFn: (value: string) => stackService.dump(value),
+    mutationFn: (value: string) => stackService.dump(value, kind),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stackNext'] });
       queryClient.invalidateQueries({ queryKey: ['stack'] });
@@ -33,17 +38,40 @@ export const DumpPage = () => {
         Put it all down here.
       </h1>
       <p className="mt-3 text-gray-600">
-        Everything you're carrying, one per line. Don't sort it, don't rank it,
-        don't finish the thought. You'll only ever see one of these at a time.
+        Everything you're carrying, one per line. Don't rank it, don't finish
+        the thought. You'll only ever see one of these at a time.
+      </p>
+
+      {/* One choice for the whole dump, not one per line. Dump your needs,
+          flip the switch, dump your wants. */}
+      <div className="mt-8 flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        {LANES.map((lane) => (
+          <button
+            key={lane.kind}
+            type="button"
+            onClick={() => setKind(lane.kind)}
+            aria-pressed={kind === lane.kind}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              kind === lane.kind
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {lane.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-sm text-gray-400">
+        {LANES.find((lane) => lane.kind === kind)?.blurb}
       </p>
 
       <textarea
         autoFocus
-        rows={14}
+        rows={12}
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder={'call the bank\nlaundry\nemail my advisor back\noil change\nthat thing I keep forgetting'}
-        className="mt-8 w-full rounded-xl border-2 border-gray-200 p-5 text-lg leading-relaxed focus:outline-none focus:border-primary-500"
+        className="mt-5 w-full rounded-xl border-2 border-gray-200 p-5 text-lg leading-relaxed focus:outline-none focus:border-primary-500"
       />
 
       <div className="mt-6 flex items-center justify-between gap-4">

@@ -9,13 +9,21 @@ so you stop looking and nothing gets done.
 **The app:** you dump everything out of your head in one box, and it hands you
 back exactly one thing at a time. Clear it, that's a win. Wins stack.
 
+Cards live in one of two lanes — **Need to** and **Want to** — so "I've done
+what I had to" becomes a real moment, and the reward is the app pointing you
+at the other lane.
+
 Three screens, and that's the whole thing:
 
 | Screen | Job |
 |---|---|
-| **Dump** (`/dump`) | Get it out of your head. One thing per line, no categories, no dates, no priorities. |
-| **Now** (`/now`) | See one card. Big. Four moves: Done, Not now, Not today, Too big. Nothing else on screen. |
-| **Everything** (`/stack`) | The full list. Always reachable, never the default — a list on screen is the overwhelm we just removed. |
+| **Dump** (`/dump`) | Get it out of your head. One thing per line, one lane toggle, no dates and no per-item sorting. |
+| **Now** (`/now`) | See one card. Big. Four moves: Done, Not now, Not today, Too big. Two lane tabs, no counts, nothing else. |
+| **Everything** (`/stack`) | The full list, and the only place ranking lives. Always reachable, never the default — a list on screen is the overwhelm we just removed. |
+
+Ranking is always optional. Dump order is the default and nothing in the app
+blocks on it: a sort you're *required* to finish before it will deal you a
+card would rebuild the exact freeze this is meant to break.
 
 📄 The problem statement this is built against: **[PROBLEM.md](./PROBLEM.md)**
 
@@ -147,7 +155,7 @@ cd web && npm test
 
 1. One thing on screen — the list is the failure state
 2. Never make them decide — choosing is thinking, thinking is the freeze
-3. Capture costs nothing — no required structure, ever
+3. Capture costs nothing — the lane defaults and nothing else is required
 4. Clarity over clutter
 5. Calm UI
 6. No manipulation — no streak pressure, no punishment for a bad day

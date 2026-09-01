@@ -7,7 +7,7 @@
 
 ## ✅ The Stack — core loop (done)
 
-- [x] `StackItem` model (Prisma) — no due dates, priorities or categories by design
+- [x] `StackItem` model (Prisma) — no due dates or estimates by design
 - [x] `POST /api/stack/dump` — brain dump, one thing per line, forgiving parsing
 - [x] `GET /api/stack/next` — exactly one card, never a list
 - [x] The four moves: `done`, `push` ("Not now"), `later` ("Not today"), `split` ("Too big")
@@ -15,7 +15,11 @@
 - [x] Split hint after 3 pushes ("this might be bigger than one thing")
 - [x] Web: `/dump`, `/now`, `/stack`; `/now` is the front door after login
 - [x] Nav hidden on `/now` so the one-card screen stays a one-card screen
-- [x] Tests: 34 backend (service + endpoints), 5 web (one-card contract)
+- [x] Two lanes: **Need to** / **Want to** — one choice per dump session, never a gate
+- [x] Optional ranking (`↑ ↓ do first`) on `/stack` only; dump order is the default
+- [x] `POST /api/stack/:id/kind` and `/rank`; lane-aware dump, next, push and split
+- [x] Empty Need lane points you at the Want lane — clearing needs is the reward
+- [x] Tests: 53 backend (service + endpoints), 9 web (one-card + lane contract)
 
 ## 🚧 The Stack — next up (HIGH PRIORITY)
 
@@ -35,7 +39,7 @@
 - [ ] **Undo the last move** — a mis-tapped "Done" currently needs a trip to the
       database. One-tap moves need a one-tap undo.
 - [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
-      Should route to `/dump` on first visit rather than showing "That's everything."
+      Should route to `/dump` on first visit rather than showing an empty lane.
 - [ ] **iOS: the same three screens.** The one-card screen is a better fit on a
       phone than on the web, and the phone is where the pile gets remembered.
 - [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
@@ -43,11 +47,17 @@
 
 ## 🤔 The Stack — open questions
 
+- [ ] **Drag-to-reorder on `/stack`.** Arrows and "do first" are robust and work
+      on touch; dragging fits the "physically arrange it" instinct better. Needs
+      a touch-capable approach, not HTML5 drag-and-drop.
 - [ ] **Does "Not today" need a "not this week"?** Risk: every option added is a
       decision, and decisions are the failure mode. Probably no.
 - [ ] **Should `/now` ever show progress?** PROBLEM.md says no — the size of the
       pile is what freezes them. Worth testing whether *cleared today* (a number
       that only goes up) is different enough to be safe.
+- [ ] **Watch the lanes for scope creep.** Two buckets is the whole taxonomy. The
+      moment someone asks for a third, or for tags, re-read PROBLEM.md first —
+      every bucket added is a decision charged at capture time.
 - [ ] **Recurring things.** Real, but recurrence is structure, and structure is
       the tax we refuse to charge. Needs a design that costs the user nothing.
 - [ ] **AI split assist.** "Too big" is the highest-leverage moment in the app and

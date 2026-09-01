@@ -42,10 +42,10 @@ works:
 
 ### Job 1 — Get it out of the head
 Everything you're carrying goes onto a surface outside your skull, as fast as
-you can type it, with zero structure required. No categories, no due dates,
-no priorities, no estimating. Structure is a tax charged at the exact moment
-the user has the least to give. The only thing that matters here is speed and
-completeness: if it's in your head, it goes in the box.
+you can type it, with essentially zero structure required. No due dates, no
+estimating, no per-item categorizing. Structure is a tax charged at the exact
+moment the user has the least to give. The only thing that matters here is
+speed and completeness: if it's in your head, it goes in the box.
 
 The relief is not organizational. The relief is that you're allowed to stop
 holding it.
@@ -63,6 +63,55 @@ because choosing is thinking, and thinking is the thing that breaks them.
 The full list still exists and is always one tap away — it's their data and
 hiding it would be a lie. But it is never the default view, and you never
 land on it.
+
+---
+
+## The two lanes
+
+There are exactly two buckets: **Need to** (the stuff that has to get done)
+and **Want to** (the stuff you'd actually like to do). One card is always in
+one of them.
+
+This is the only structure the app asks for, and the reason it's affordable
+is *when* it gets charged and *how often*:
+
+- It's **one choice per dump session, not one per item.** You flip a switch,
+  dump your obligations, flip it back, dump the fun stuff. Two decisions for
+  thirty cards.
+- It **defaults**, so it can be ignored completely. Everything lands in
+  "Need to" if you never touch the switch.
+- It is **never a gate.** A card with no lane opinion still gets dealt. There
+  is no sorting step you must complete before the app will hand you something.
+
+What it buys is worth the cost: the freeze isn't only about volume, it's about
+obligation. A pile that's 100% obligation is heavier than a pile of the same
+size with something you actually want in it. Separating them means "I've done
+my needs" becomes a real, reachable moment — and the reward for reaching it is
+the app pointing you at the other lane.
+
+The tabs carry **no counts on the card screen**, for the same reason the card
+doesn't. A badge saying "17" on the Need tab is the pile leaking back in.
+
+---
+
+## Ranking: allowed, never required
+
+You can say "that one first." It lives on the Everything screen — move a card
+up, down, or straight to the top of its lane.
+
+It is deliberately quarantined there, because **ranking is itself the thinking
+that freezes you.** Deciding the relative priority of 34 things is exactly the
+operation this product exists to make unnecessary. So:
+
+- **Dump order is the default.** The app always has an answer for "what's
+  next" without anyone having ranked anything.
+- **Nothing blocks on it.** No card needs a rank to be dealt. No screen asks
+  you to sort before it will help you.
+- **You never land on the ranking screen.** You have to go looking for it.
+
+The rule of thumb: ranking is for the moment you *already know* something is
+urgent and want to stop seeing everything else first. It is not a planning
+ritual, and the app must never turn it into one.
 
 ---
 
@@ -100,7 +149,9 @@ to break it down before the user has to ask.
 ## What this is not
 
 - **Not a to-do app.** To-do apps optimize for capture and organization. Their
-  home screen is a list. The list is our failure state.
+  home screen is a list. The list is our failure state. Two lanes and an
+  optional rank is where our organizing stops — no tags, no projects, no due
+  dates, no sub-priorities.
 - **Not a project manager.** No dependencies, no assignees, no gantt anything.
 - **Not a productivity system.** No methodology to learn. Nothing to maintain.
   If using it requires upkeep, it becomes another thing on the pile.
@@ -136,7 +187,8 @@ going?" It is no longer the front door.
 Not DAU. Not session length — a *long* session on this app is a bug.
 
 1. **Time from opening the app to knowing what to do next.** Target: under two
-   seconds, because the card is already there. This is the whole product.
+   seconds, because the card is already there. This is the whole product. If
+   lanes or ranking ever add a step here, they've failed and should be cut.
 2. **Cards cleared per session.** Did the freeze break?
 3. **Return after a bad day.** Someone who dropped off for three days and
    comes back and clears one card is the success case, not the failure case.
