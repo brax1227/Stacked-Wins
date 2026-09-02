@@ -25,18 +25,24 @@ app.use('/api/coach', coachRoutes);
 **Frontend:**
 1. Uncomment route in `web/src/App.tsx`
 2. Uncomment nav item in `web/src/components/Layout.tsx`
-3. Ensure `OPENAI_API_KEY` is set in backend `.env`
+3. Ensure `ANTHROPIC_API_KEY` is set in backend `.env`
 
 ### Cost Considerations:
 
-- Uses GPT-4 Turbo
+- Uses Claude Opus 5 (`claude-opus-5`)
 - ~500 tokens per response
-- Estimated cost: ~$0.01-0.02 per message
-- With 100 active users, 1 message/day each = ~$30-60/month
+- Rough cost per message at $5/MTok in, $25/MTok out: well under $0.05 with a
+  short context; the context builder sends baseline, plan and recent check-ins,
+  so measure before assuming.
+- Prompt caching would cut the repeated system-prompt cost substantially if
+  this is ever enabled at volume.
 
 ### Alternative:
 
-Consider using a cheaper model (GPT-3.5) or implementing rate limiting per user (e.g., 10 messages/day free, then paid).
+Rate limit per user (e.g. 10 messages/day free, then paid) before reaching for
+a smaller model. If cost is still the blocker, lower `output_config.effort`
+before changing model — see `src/services/splitAssistService.js` for the
+per-route effort pattern.
 
 ---
 

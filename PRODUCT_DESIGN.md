@@ -616,7 +616,7 @@ Show multiple signals to avoid streak obsession:
 ### Core Stack
 - **Backend:** Node.js/Express or Python/FastAPI
 - **Database:** PostgreSQL (user data, plans, progress)
-- **AI/LLM:** OpenAI API or Anthropic Claude (for coaching)
+- **AI/LLM:** Anthropic Claude — the "Too big" split assist (and, for Layer 2, plan generation and coaching)
 - **Auth:** OAuth 2.0 / JWT
 - **Notifications:** Push (iOS) + Web Push (web)
 

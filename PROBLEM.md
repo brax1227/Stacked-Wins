@@ -141,8 +141,20 @@ options means deciding, and deciding is the failure mode.
 
 "Too big" is the most important one. A card that keeps getting pushed isn't
 being avoided out of laziness — it's usually a card that's secretly five
-tasks wearing a trench coat. The app should notice repeated pushes and offer
-to break it down before the user has to ask.
+tasks wearing a trench coat. The app notices repeated pushes and offers to
+break it down before the user has to ask.
+
+It's also the one place an LLM earns its cost. The reason someone froze is
+often that they can't see the first step, and naming the first step is exactly
+what a model is good at. So the break-it-up screen has an **"I don't know where
+to start"** button: Claude proposes the smallest concrete steps, and they land
+in the editable box for the user to change or throw away.
+
+The hard rule there is that it **only ever suggests**. Nothing is written to
+the stack until the person confirms it themselves. An app that silently
+restructures your list is an app you stop trusting, and trusting the surface
+is the entire product — if you don't believe the box is holding everything,
+you go back to holding it in your head.
 
 ---
 

@@ -19,7 +19,14 @@
 - [x] Optional ranking (`↑ ↓ do first`) on `/stack` only; dump order is the default
 - [x] `POST /api/stack/:id/kind` and `/rank`; lane-aware dump, next, push and split
 - [x] Empty Need lane points you at the Want lane — clearing needs is the reward
-- [x] Tests: 53 backend (service + endpoints), 9 web (one-card + lane contract)
+- [x] **"I don't know where to start"** — Claude suggests the smallest first steps
+      on the "Too big" screen. Suggests only: pieces land in the editable box and
+      nothing is written until the user confirms.
+- [x] Ported plan generation and coach chat from OpenAI to Claude, with structured
+      outputs replacing hand-parsed JSON
+- [x] AI client built lazily — a missing key no longer stops the server booting,
+      it just hides the suggestion button (`GET /api/stack/capabilities`)
+- [x] Tests: 60 backend (service + endpoints + assist), 9 web (one-card + lane contract)
 
 ## 🚧 The Stack — next up (HIGH PRIORITY)
 
@@ -60,8 +67,11 @@
       every bucket added is a decision charged at capture time.
 - [ ] **Recurring things.** Real, but recurrence is structure, and structure is
       the tax we refuse to charge. Needs a design that costs the user nothing.
-- [ ] **AI split assist.** "Too big" is the highest-leverage moment in the app and
-      the one place an LLM would genuinely earn its cost. Currently manual.
+- [ ] **Tune the split assist.** It runs at `output_config.effort: 'low'` — a
+      deliberate per-route choice for a short, tightly-specified extraction that
+      may be hit many times a sitting. Raise it if suggestions come back shallow.
+- [ ] **Measure what the assist actually costs** before opening it up. Nothing in
+      the app rate-limits it beyond the global limiter.
 
 ---
 
@@ -96,7 +106,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 ### 3. Plan Endpoints
 - [ ] `POST /api/plan/generate` - Generate AI growth plan
   - Get user's assessment
-  - Call OpenAI/Anthropic API with assessment data
+  - Call the Anthropic API with assessment data
   - Parse AI response into structured plan
   - Save plan to database
   - Create initial tasks
@@ -136,7 +146,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 - [ ] `POST /api/coach/chat` - Send message to AI coach
   - Get user's plan, recent check-ins, progress
   - Build context for AI
-  - Call OpenAI/Anthropic API
+  - Call the Anthropic API
   - Save chat history
   - Return response
 - [ ] `GET /api/coach/history` - Get chat history
@@ -157,7 +167,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ## 🤖 AI Integration
 
-- [ ] Set up OpenAI or Anthropic API client
+- [x] Set up Anthropic API client (`src/utils/anthropic.js`, lazily constructed)
 - [ ] Create prompt templates for:
   - Plan generation
   - Coach responses

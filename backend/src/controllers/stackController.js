@@ -1,5 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
+import { isAiConfigured } from '../utils/anthropic.js';
+import { suggestPieces } from '../services/splitAssistService.js';
 import {
   parseDump,
   normalizeTitle,
@@ -360,6 +362,54 @@ export const splitItem = async (req, res, next) => {
     });
     next(error);
   }
+};
+
+/**
+ * POST /api/stack/:id/split/suggest — ask Claude for the smallest first steps.
+ *
+ * Suggests only. Nothing is written to the stack: the pieces go back to the
+ * client, land in an editable box, and the user confirms them through the
+ * normal split. An app that silently restructures your list is one you stop
+ * trusting, and trusting the surface is the whole product.
+ */
+export const suggestSplitPieces = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    if (!isAiConfigured()) {
+      // Not an error the user caused -- the UI hides the button when this is
+      // the case, so this is a backstop for a stale client.
+      return res.status(503).json({ error: 'AI suggestions are not configured' });
+    }
+
+    const item = await findOwnedItem(userId, req.params.id);
+    if (!item) return res.status(404).json({ error: 'Card not found' });
+
+    const pieces = await suggestPieces(item.title);
+
+    if (pieces.length === 0) {
+      return res.status(502).json({ error: "Couldn't come up with steps for that one" });
+    }
+
+    res.json({ pieces });
+  } catch (error) {
+    logger.error('Suggest split error', {
+      module: 'stackController',
+      error: error.message,
+      userId: req.user?.id,
+    });
+    next(error);
+  }
+};
+
+/**
+ * GET /api/stack/capabilities — what this deployment can actually do.
+ *
+ * Lets the client hide the AI affordance entirely when no key is configured,
+ * rather than showing a button that fails on click.
+ */
+export const getCapabilities = async (req, res) => {
+  res.json({ splitAssist: isAiConfigured() });
 };
 
 /**

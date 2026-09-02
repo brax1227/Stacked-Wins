@@ -6,10 +6,37 @@ import {
   needsReassessment,
   calculateProgress,
 } from './baselineService.js';
-import OpenAI from 'openai';
+import { z } from 'zod';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { getAnthropic, CLAUDE_MODEL } from '../utils/anthropic.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+/**
+ * Shape of a generated plan. Using structured outputs means the model's
+ * response is schema-validated before it reaches us -- no hand-parsing a JSON
+ * blob out of prose and hoping.
+ */
+const PlanSchema = z.object({
+  vision: z.string().describe('A 1-2 sentence vision statement for the next 6-12 months'),
+  intensity: z.enum(['low', 'standard', 'high']),
+  milestones: z
+    .array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        targetDate: z.string().describe('YYYY-MM-DD'),
+      })
+    )
+    .describe('Exactly three monthly milestones'),
+  weeklyFocus: z.string(),
+  dailyTasks: z.array(
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      estimatedMinutes: z.number().int(),
+      isAnchorWin: z.boolean(),
+      category: z.enum(['mental', 'physical', 'purpose', 'routine']),
+    })
+  ),
 });
 
 /**
@@ -40,7 +67,7 @@ Current Assessment:
 - Values: ${assessment.values.join(', ')}
 - Preferred Tone: ${assessment.preferredTone}
 
-Create a growth plan with this structure (respond ONLY with valid JSON, no markdown):
+Create a growth plan with this structure:
 
 {
   "vision": "A 1-2 sentence vision statement for the next 6-12 months that aligns with their goals and values",
@@ -82,9 +109,7 @@ Rules:
 - One task must be marked as "anchorWin" (the most important one).
 - Tasks must be meaningful and build toward the vision.
 - Use the ${assessment.preferredTone} tone in descriptions.
-- Make tasks specific and actionable, not vague.
-
-Respond with ONLY the JSON object, no other text.`;
+- Make tasks specific and actionable, not vague.`;
 };
 
 /**
@@ -118,25 +143,20 @@ export const generatePlan = async (userId) => {
       needsReassessment: needsReassess,
     });
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a wellness coach that creates structured, achievable growth plans. Always respond with valid JSON only, no markdown formatting.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
+    const client = getAnthropic();
+    const response = await client.messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 8000,
+      system:
+        'You are a wellness coach that creates structured, achievable growth plans.',
+      output_config: { format: zodOutputFormat(PlanSchema) },
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const planData = JSON.parse(completion.choices[0].message.content);
+    const planData = response.parsed_output;
+    if (!planData) {
+      throw new Error('Plan generation returned an unusable response');
+    }
 
     // Deactivate existing plans
     await prisma.growthPlan.updateMany({

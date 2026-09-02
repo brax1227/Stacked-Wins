@@ -39,6 +39,14 @@ export const NowPage = () => {
     queryFn: () => stackService.getNext(kind),
   });
 
+  // Hide the AI affordance entirely when no key is configured, rather than
+  // showing a button that fails on click.
+  const { data: capabilities } = useQuery({
+    queryKey: ['stackCapabilities'],
+    queryFn: () => stackService.getCapabilities(),
+    staleTime: Infinity,
+  });
+
   const switchLane = (next: StackKind) => {
     setKind(next);
     setBreakingDown(false);
@@ -71,6 +79,13 @@ export const NowPage = () => {
   const relane = useMutation({
     mutationFn: ({ id, to }: { id: string; to: StackKind }) => stackService.setKind(id, to),
     onSuccess: nextCard,
+  });
+
+  // Suggestions land in the textarea for the user to edit. Nothing is written
+  // to the stack until they hit "Break it up" themselves.
+  const suggest = useMutation({
+    mutationFn: (id: string) => stackService.suggestSplit(id),
+    onSuccess: (result) => setPieces(result.pieces.join('\n')),
   });
 
   const item = data?.item ?? null;
@@ -167,6 +182,23 @@ export const NowPage = () => {
           placeholder={'find the phone number\nwrite down what to ask\nmake the call'}
           className="mt-4 w-full max-w-xl rounded-xl border-2 border-gray-200 p-4 text-lg focus:outline-none focus:border-primary-500"
         />
+
+        {capabilities?.splitAssist && (
+          <button
+            type="button"
+            disabled={suggest.isPending || split.isPending}
+            onClick={() => suggest.mutate(item.id)}
+            className="mt-3 text-sm text-primary-700 hover:text-primary-800 disabled:opacity-40"
+          >
+            {suggest.isPending ? 'Thinking…' : "I don't know where to start"}
+          </button>
+        )}
+        {suggest.isError && (
+          <p className="mt-3 text-sm text-gray-500">
+            Couldn't come up with steps for that one. Break it up yourself — you know it better anyway.
+          </p>
+        )}
+
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             type="button"

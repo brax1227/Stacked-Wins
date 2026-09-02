@@ -57,7 +57,18 @@ export interface NextCard extends StackCounts {
   suggestSplit: boolean;
 }
 
+export interface StackCapabilities {
+  /** Whether this deployment has an Anthropic key configured. */
+  splitAssist: boolean;
+}
+
 export const stackService = {
+  /** What this deployment can do, so the UI can hide what isn't available. */
+  async getCapabilities(): Promise<StackCapabilities> {
+    const response = await api.get<StackCapabilities>('/stack/capabilities');
+    return response.data;
+  },
+
   /** Job 1: get it out of the head. One thing per line, into one lane. */
   async dump(text: string, kind: StackKind = 'need'): Promise<StackCounts & { added: number }> {
     const response = await api.post('/stack/dump', { text, kind });
@@ -104,6 +115,15 @@ export const stackService = {
   /** "Too big" — break it down; the first piece is dealt next. */
   async split(id: string, pieces: string): Promise<{ pieces: number }> {
     const response = await api.post(`/stack/${id}/split`, { pieces });
+    return response.data;
+  },
+
+  /**
+   * Ask Claude for the smallest first steps of a card. Suggests only —
+   * nothing is written until the user confirms through `split`.
+   */
+  async suggestSplit(id: string): Promise<{ pieces: string[] }> {
+    const response = await api.post<{ pieces: string[] }>(`/stack/${id}/split/suggest`);
     return response.data;
   },
 

@@ -10,6 +10,8 @@ import {
   splitItem,
   setKind,
   rankItem,
+  suggestSplitPieces,
+  getCapabilities,
   dropItem,
   updateItem,
 } from '../controllers/stackController.js';
@@ -20,6 +22,7 @@ const router = express.Router();
 // All stack routes require authentication
 router.post('/dump', authenticate, dump);
 router.get('/next', authenticate, getNext);
+router.get('/capabilities', authenticate, getCapabilities);
 router.get('/', authenticate, getStack);
 router.post('/', authenticate, addItem);
 
@@ -28,6 +31,8 @@ router.post('/:id/done', authenticate, completeItem);
 router.post('/:id/push', authenticate, pushItem);
 router.post('/:id/later', authenticate, snoozeItem);
 router.post('/:id/split', authenticate, splitItem);
+// Suggests pieces only -- the user confirms them through /:id/split above.
+router.post('/:id/split/suggest', authenticate, suggestSplitPieces);
 
 // Lanes and ranking. Both optional -- neither ever gates getting a card.
 router.post('/:id/kind', authenticate, setKind);

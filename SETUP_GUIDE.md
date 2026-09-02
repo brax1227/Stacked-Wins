@@ -53,7 +53,7 @@ Before you begin, ensure you have:
    # If you prefer TCP (password-based), use:
    # DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/stacked_wins?schema=public"
    JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-   OPENAI_API_KEY="sk-your-openai-api-key"
+   ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
    PORT=3001
    NODE_ENV=development
    ```
@@ -207,7 +207,7 @@ Open `http://localhost:5173` in your browser. You should see the "Stacked Wins" 
 
 1. **Implement authentication endpoints** in backend
 2. **Create onboarding flow** in web/iOS
-3. **Set up AI integration** (OpenAI/Anthropic)
+3. **Set up AI integration** (Anthropic Claude)
 4. **Build daily plan UI**
 5. **Implement progress tracking**
 
@@ -248,7 +248,8 @@ Open `http://localhost:5173` in your browser. You should see the "Stacked Wins" 
 ### Backend (.env)
 - `DATABASE_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Secret for JWT token signing
-- `OPENAI_API_KEY` - OpenAI API key for AI features
+- `ANTHROPIC_API_KEY` - Anthropic API key. Optional: the server boots and the
+  stack works without it; only the AI suggestion button disappears.
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (development/production)
 - `CORS_ORIGIN` - Allowed CORS origins

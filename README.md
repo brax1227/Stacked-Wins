@@ -25,6 +25,12 @@ Ranking is always optional. Dump order is the default and nothing in the app
 blocks on it: a sort you're *required* to finish before it will deal you a
 card would rebuild the exact freeze this is meant to break.
 
+On the **Too big** screen there's an *"I don't know where to start"* button —
+Claude proposes the smallest concrete first steps. It only ever *suggests*:
+the steps land in an editable box and nothing is written to your stack until
+you confirm. Set `ANTHROPIC_API_KEY` to turn it on; without a key the server
+still boots, the stack works, and the button simply isn't there.
+
 📄 The problem statement this is built against: **[PROBLEM.md](./PROBLEM.md)**
 
 ## 🎯 Project Overview
@@ -34,7 +40,7 @@ card would rebuild the exact freeze this is meant to break.
 - **Backend:** Node.js/Express + PostgreSQL
 - **iOS:** Swift/SwiftUI
 - **Web:** React/TypeScript
-- **AI:** OpenAI/Anthropic API for coaching
+- **AI:** Anthropic Claude (`claude-opus-5`) for the "Too big" split assist
 
 ## 📁 Project Structure
 
@@ -168,7 +174,7 @@ cd web && npm test
 - Node.js + Express
 - PostgreSQL (via Prisma ORM)
 - JWT authentication
-- OpenAI/Anthropic API integration
+- Anthropic Claude API integration (`@anthropic-ai/sdk`)
 - Structured logging (Winston)
 
 ### iOS
