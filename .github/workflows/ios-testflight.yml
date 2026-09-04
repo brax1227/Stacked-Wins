@@ -24,9 +24,19 @@ on:
           - compile-check
           - testflight
   # Or tag a release: git tag ios-v0.1.0 && git push origin ios-v0.1.0
+  #
+  # Branch pushes that touch the app run the compile check only (see the job
+  # conditions below). This is also what makes a feature branch self-verifying
+  # without a Mac: workflow_dispatch needs the file on the default branch to
+  # be registered, but push triggers evaluate the workflow on the pushed ref.
   push:
     tags:
       - 'ios-v*'
+    branches:
+      - '**'
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-testflight.yml'
   # On PRs, only check that it still compiles. No secrets, no upload — so
   # this also runs safely on PRs from forks.
   pull_request:
@@ -49,6 +59,7 @@ jobs:
   compile-check:
     if: >-
       github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref_type == 'branch') ||
       (github.event_name == 'workflow_dispatch' && inputs.job == 'compile-check')
     runs-on: macos-latest
     steps:
@@ -73,7 +84,7 @@ jobs:
 
   testflight:
     if: >-
-      github.event_name == 'push' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ios-v')) ||
       (github.event_name == 'workflow_dispatch' && inputs.job == 'testflight')
     runs-on: macos-latest
     timeout-minutes: 45
