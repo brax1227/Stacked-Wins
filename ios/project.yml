@@ -26,6 +26,12 @@ settings:
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
     # DEVELOPMENT_TEAM is supplied by CI from the APPLE_TEAM_ID secret.
+    #
+    # Where the app talks to. Baked into Info.plist below; CI overrides it from
+    # the API_BASE_URL repository variable. Users can still change it in the
+    # app's Server screen, which is how a TestFlight build reaches a backend
+    # running on your own computer.
+    API_BASE_URL: "http://localhost:3001"
 
 targets:
   StackedWins:
@@ -49,6 +55,13 @@ targets:
         # upload sits in "Missing Compliance" until someone answers the export
         # questionnaire by hand in App Store Connect.
         ITSAppUsesNonExemptEncryption: false
+        # Substituted from the build setting of the same name at build time.
+        API_BASE_URL: $(API_BASE_URL)
+        # Lets the app reach a plain-http backend on the local network (your
+        # laptop's LAN address) without disabling transport security for the
+        # internet at large. Anything non-local still needs https.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         # CHANGE THIS to a bundle ID you own and have registered in the

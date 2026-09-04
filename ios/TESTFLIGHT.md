@@ -146,18 +146,25 @@ cd ios && xcodegen generate && open StackedWins.xcodeproj
 
 ---
 
-## What actually ships right now
+## What ships
 
-**A placeholder.** `ContentView` renders the app name and tagline and nothing
-else, and every method in `APIService` throws `notImplemented`. The Swift here
-predates the product pivot — it models the old assessment/growth-plan
-direction and knows nothing about the stack (`/stack/dump`, `/stack/next`, the
-four moves). `Config.swift` also points at `localhost:3000`, which on a phone
-means the phone itself, and the backend runs on 3001 anyway.
+The real app: sign in, dump, one card with the four moves, both lanes, the
+Claude break-it-up assist, and the Everything list with ranking. It talks to
+the same backend as the web app.
 
-That's fine for proving the pipeline works — shipping a trivial build first is
-the normal way to shake out signing — but the app needs building before
-TestFlight is worth handing to anyone.
+**What it points at** is set two ways. CI bakes `API_BASE_URL` into the build
+from a repository *variable* of that name (Settings → Secrets and variables →
+Actions → **Variables**) — set it to wherever your backend is deployed. If it's
+unset the build defaults to `localhost`, which on a phone means the phone.
+Either way, testers can change it in-app under **⋯ → Server**; pointing a
+TestFlight build at a laptop on the same Wi-Fi (`http://192.168.x.x:3001`)
+works because the app allows plain http for local addresses only.
+
+**Unverified by a compiler.** No Mac was available while writing this. The
+Foundation-only networking layer was typechecked with a Linux Swift toolchain;
+the SwiftUI screens were only parse-checked. The PR `compile-check` job does
+the first real build — expect to fix a handful of SwiftUI type errors on the
+first run, not a broken design.
 
 ---
 

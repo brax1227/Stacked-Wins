@@ -66,6 +66,10 @@ jobs:
       ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # A repository *variable* (not secret): Settings -> Secrets and variables
+      # -> Actions -> Variables. The URL your deployed backend lives at. Falls
+      # back to localhost, which testers can override in the app's Server screen.
+      API_BASE_URL: ${{ vars.API_BASE_URL || 'http://localhost:3001' }}
       ARCHIVE_PATH: ${{ github.workspace }}/build/StackedWins.xcarchive
       EXPORT_PATH: ${{ github.workspace }}/build/export
     steps:
@@ -127,7 +131,8 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            API_BASE_URL="${API_BASE_URL}"
 
       - name: Write export options
         # Generated rather than committed so the team ID lives only in secrets.

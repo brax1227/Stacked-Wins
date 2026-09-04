@@ -47,13 +47,14 @@
       database. One-tap moves need a one-tap undo.
 - [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
       Should route to `/dump` on first visit rather than showing an empty lane.
-- [ ] **iOS: the same three screens.** The one-card screen is a better fit on a
-      phone than on the web, and the phone is where the pile gets remembered.
-      **The release pipeline is ready and waiting for this** — see
-      `ios/TESTFLIGHT.md`. What ships today is the placeholder `ContentView`;
-      `APIService` still stubs the deleted growth-plan endpoints and knows
-      nothing about `/stack/*`, and `Config.swift` points at `localhost:3000`
-      (wrong port, and meaningless on a phone).
+- [x] **iOS: the same screens.** Sign in, dump, one card + four moves, lanes,
+      break-it-up with the Claude assist, Everything with ranking, and a Server
+      screen so a TestFlight build can hit a laptop backend. Written without a
+      Mac: Foundation layer typechecked on Linux, SwiftUI parse-checked only.
+- [ ] **First real compile of the iOS app** — open a PR touching `ios/` and let
+      the `compile-check` job run. Expect a few SwiftUI type fixes.
+- [ ] **Set the `API_BASE_URL` repository variable** once the backend is deployed
+      somewhere a phone can reach.
 - [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
       that has to wait until you open the app is a thing that stays in your head.
 
@@ -190,6 +191,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
       see `ios/TESTFLIGHT.md`
 - [ ] Register a bundle ID you own and set it in `ios/project.yml`
 - [ ] First shakedown run of the pipeline
+- [ ] Undo, keyboard shortcuts, first-run empty state — same open items as web
 - [ ] Configure API base URL
 - [ ] Test API connectivity
 - [ ] Build basic UI screens

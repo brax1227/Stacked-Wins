@@ -1,73 +1,67 @@
-# Stacked Wins iOS App
+# Stacked Wins — iOS
 
-Native iOS application built with SwiftUI.
+Native SwiftUI app for the stack: dump everything out of your head, get handed
+one card at a time. It mirrors the web app screen for screen and talks to the
+same backend. See [PROBLEM.md](../PROBLEM.md) for why it's shaped this way.
+
+## Screens
+
+| Screen | Job |
+|---|---|
+| **Now** (`NowView`) | One card, large, four moves: Done / Not now / Not today / Too big. Two lane tabs, **no counts anywhere**. This is the front door and the whole product. |
+| **Break it up** (`BreakItUpSheet`) | Type the smallest first pieces. *"I don't know where to start"* asks Claude — it only ever suggests, nothing is written until you tap Break it up. Hidden when the server has no API key. |
+| **Put it down** (`DumpView`) | The brain dump. One thing per line, one lane toggle, nothing else to fill in. |
+| **Everything** (`EverythingView`) | The full list for one lane. The only screen with counts, and the only place ranking lives — swipe right for *Do first*, long-press for up/down/move lane/let go. |
+| **Server** (`ServerSettingsView`) | Where the API is. How a TestFlight build reaches a backend on your laptop. |
+
+## Layout
+
+```
+StackedWins/StackedWins/
+├── StackedWinsApp.swift     # Entry; routes on signed-in state
+├── AppState.swift           # Session only — no app-wide cache of the pile, on purpose
+├── Models/
+│   ├── Stack.swift          # StackItem, StackKind, NextCard … mirrors web/src/services/stackService.ts
+│   └── User.swift
+├── Services/
+│   ├── APIClient.swift      # URLSession + JWT + error mapping. Foundation-only, typechecks on Linux
+│   ├── AuthService.swift
+│   └── StackService.swift   # One function per endpoint
+├── Utils/
+│   ├── Config.swift         # Server URL resolution (Settings → Info.plist → localhost)
+│   └── Keychain.swift       # Token storage
+└── Views/
+```
+
+There is **no `.xcodeproj` in git**. `../project.yml` is the source of truth and
+XcodeGen generates the project. Drop a Swift file in `StackedWins/StackedWins/`
+and it's picked up — no project edit.
+
+## Running it locally (needs a Mac)
+
+```bash
+brew install xcodegen
+cd ios && xcodegen generate && open StackedWins.xcodeproj
+```
+
+Start the backend (`cd backend && npm run dev`, port 3001). In the simulator
+the default `http://localhost:3001` just works. On a real phone, open the
+**⋯ → Server** menu and enter your Mac's Wi-Fi address, e.g.
+`http://192.168.1.20:3001` — plain http is allowed for local addresses only.
+
+## Shipping
+
+See [TESTFLIGHT.md](./TESTFLIGHT.md). Releases are built and uploaded by
+GitHub Actions; nobody needs a Mac for that.
+
+## Working without a Mac
+
+The networking layer (`Models/`, `Services/`, `Utils/Config.swift`) is
+deliberately Foundation-only so it can be **typechecked on Linux** with a
+stock Swift toolchain. SwiftUI files can only be parse-checked there; the
+`compile-check` job in CI does the real build on every PR touching `ios/`.
 
 ## Requirements
 
-- Xcode 15.0+
 - iOS 17.0+
-- Swift 5.9+
-
-## Setup
-
-1. **Open project:**
-   ```bash
-   open StackedWins.xcodeproj
-   ```
-
-2. **Configure signing:**
-   - Select your development team in Xcode
-   - Update bundle identifier if needed
-
-3. **Set API URL:**
-   - Edit `Config.swift` with your backend API URL
-   - Or use environment variables
-
-4. **Run:**
-   - Select simulator or device
-   - Press Cmd+R to build and run
-
-## Project Structure
-
-```
-StackedWins/
-├── Views/          # SwiftUI views
-│   ├── Onboarding/
-│   ├── DailyPlan/
-│   ├── Dashboard/
-│   └── CoachChat/
-├── ViewModels/     # View models (MVVM)
-├── Models/         # Data models
-├── Services/       # API service layer
-├── Utils/          # Utilities & extensions
-└── Resources/      # Assets, strings, etc.
-```
-
-## Key Features
-
-- **Onboarding Flow** - Deep assessment survey
-- **Daily Plan** - Today's micro-wins with progress tracking
-- **Progress Dashboard** - Wins, streaks, metrics visualization
-- **AI Coach Chat** - Structured coaching conversations
-- **Offline Support** - Core Data for local caching
-- **Push Notifications** - Daily reminders and check-ins
-
-## Architecture
-
-- **MVVM** pattern
-- **Combine** for reactive state
-- **URLSession** for networking
-- **Core Data** for local storage
-- **UserNotifications** for push notifications
-
-## Testing
-
-Run tests in Xcode:
-- Cmd+U to run all tests
-- Tests located in `StackedWinsTests/`
-
-## Building for Production
-
-1. Select "Any iOS Device" or specific device
-2. Product → Archive
-3. Distribute via App Store Connect
+- Xcode 15+ (CI uses whatever `macos-latest` ships)
