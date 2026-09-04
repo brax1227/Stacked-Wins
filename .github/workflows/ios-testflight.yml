@@ -10,9 +10,19 @@ name: iOS TestFlight
 # Setup (one time) is documented in ios/TESTFLIGHT.md.
 
 on:
-  # The normal way to ship: Actions tab -> iOS TestFlight -> Run workflow.
-  # Deliberately manual — you rarely want every push burning a build number.
+  # The normal way to ship: Actions tab -> iOS TestFlight -> Run workflow ->
+  # pick "testflight". Deliberately manual — you rarely want every push
+  # burning a build number. The default is a compile check, so a stray click
+  # never ships anything.
   workflow_dispatch:
+    inputs:
+      job:
+        description: What to run
+        type: choice
+        default: compile-check
+        options:
+          - compile-check
+          - testflight
   # Or tag a release: git tag ios-v0.1.0 && git push origin ios-v0.1.0
   push:
     tags:
@@ -34,9 +44,12 @@ concurrency:
 
 jobs:
   # Cheap guard so the iOS app can't silently stop compiling. Simulator build,
-  # no code signing, no credentials needed.
+  # no code signing, no credentials needed. Runs on PRs, and on demand from
+  # any branch — the way to verify Swift written without a Mac.
   compile-check:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'compile-check')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +72,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   testflight:
-    if: github.event_name != 'pull_request'
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'testflight')
     runs-on: macos-latest
     timeout-minutes: 45
     env:

@@ -90,7 +90,11 @@ fails immediately with a clear message rather than deep inside a build log.
 
 ## Shipping a build
 
-**Actions** tab → **iOS TestFlight** → **Run workflow**.
+**Actions** tab → **iOS TestFlight** → **Run workflow** → set *What to run* to
+**testflight**. (It defaults to `compile-check`, which only builds for the
+simulator and uploads nothing — so a stray click can't burn a build number.
+`compile-check` is also how to verify Swift changes from any branch without a
+Mac.)
 
 Or tag a release:
 
