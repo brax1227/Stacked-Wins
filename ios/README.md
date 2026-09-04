@@ -58,8 +58,12 @@ GitHub Actions; nobody needs a Mac for that.
 
 The networking layer (`Models/`, `Services/`, `Utils/Config.swift`) is
 deliberately Foundation-only so it can be **typechecked on Linux** with a
-stock Swift toolchain. SwiftUI files can only be parse-checked there; the
-`compile-check` job in CI does the real build on every PR touching `ios/`.
+stock Swift toolchain. SwiftUI files can only be parse-checked there.
+
+The real build happens in CI: the `compile-check` job runs on a macOS runner
+for every PR and every branch push touching `ios/` (Swift files — markdown
+edits don't trigger it). The whole app was written and first compiled this
+way, with no Mac involved: 16 files, zero errors, on Xcode 26.6.
 
 ## Requirements
 

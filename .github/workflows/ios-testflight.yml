@@ -36,12 +36,14 @@ on:
       - '**'
     paths:
       - 'ios/**'
+      - '!ios/**/*.md'
       - '.github/workflows/ios-testflight.yml'
   # On PRs, only check that it still compiles. No secrets, no upload — so
   # this also runs safely on PRs from forks.
   pull_request:
     paths:
       - 'ios/**'
+      - '!ios/**/*.md'
       - '.github/workflows/ios-testflight.yml'
 
 permissions:

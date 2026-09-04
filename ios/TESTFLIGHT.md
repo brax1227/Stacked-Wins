@@ -4,9 +4,9 @@ The pipeline builds, signs, and uploads the iOS app from GitHub Actions, so
 you never need a Mac to release. Setup is one-time and takes about 20 minutes;
 after that, shipping is a button in the Actions tab.
 
-**Nothing below has been run yet.** It was written without access to a Mac or
-an Apple account, so treat the first run as a shakedown — see
-[If the first run fails](#if-the-first-run-fails).
+**The build half of this has run and passed on CI.** The signing and upload
+half needs your Apple account and hasn't, so treat the first `testflight` run
+as a shakedown — see [If the first run fails](#if-the-first-run-fails).
 
 ---
 
@@ -164,11 +164,12 @@ Either way, testers can change it in-app under **⋯ → Server**; pointing a
 TestFlight build at a laptop on the same Wi-Fi (`http://192.168.x.x:3001`)
 works because the app allows plain http for local addresses only.
 
-**Unverified by a compiler.** No Mac was available while writing this. The
-Foundation-only networking layer was typechecked with a Linux Swift toolchain;
-the SwiftUI screens were only parse-checked. The PR `compile-check` job does
-the first real build — expect to fix a handful of SwiftUI type errors on the
-first run, not a broken design.
+**Verified.** The `compile-check` job has run on a real `macos-latest` runner
+(Xcode 26.6, iOS 26.5 simulator SDK): `xcodegen generate` produced the project
+from `project.yml`, and all 16 Swift files compiled for arm64 and x86_64 with
+zero errors and zero warnings, in 43 seconds. What is *not* yet exercised is
+everything that needs your Apple account — signing, export, and the upload.
+That's the shakedown the first `testflight` run does.
 
 ---
 
@@ -182,7 +183,7 @@ Most likely causes, roughly in order:
 | `Missing repository secrets: ...` | A secret name is misspelled — they're case-sensitive |
 | `Decoded key is not a PEM private key` | The base64 got line-wrapped or truncated; re-encode with `base64 -w0` |
 | `The bundle version must be higher than...` | A build with that number already exists; re-run (the run number increments) |
-| `exportOptionsPlist error: method` | Old Xcode on the runner — change `app-store-connect` to `app-store` in the workflow |
+| `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
 
 The workflow saves the `.ipa` as a run artifact for 14 days even on failure,

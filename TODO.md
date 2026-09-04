@@ -51,8 +51,9 @@
       break-it-up with the Claude assist, Everything with ranking, and a Server
       screen so a TestFlight build can hit a laptop backend. Written without a
       Mac: Foundation layer typechecked on Linux, SwiftUI parse-checked only.
-- [ ] **First real compile of the iOS app** — open a PR touching `ios/` and let
-      the `compile-check` job run. Expect a few SwiftUI type fixes.
+- [x] **First real compile of the iOS app** — `compile-check` on `macos-latest`
+      (Xcode 26.6): 16 files, arm64 + x86_64, zero errors, zero warnings, first
+      try. Runs automatically on every branch push touching `ios/` now.
 - [ ] **Set the `API_BASE_URL` repository variable** once the backend is deployed
       somewhere a phone can reach.
 - [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
