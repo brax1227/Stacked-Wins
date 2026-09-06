@@ -45,6 +45,12 @@ a privacy policy for TestFlight — only for public App Store release.
 
 This is what lets CI sign and upload without a Mac or stored certificates.
 
+**Already have one from another app on the same team?** API keys are issued
+per *team*, not per app, so a key that drives another app's CI can drive this
+one. Its Key ID and Issuer ID are whatever you set in that other repo's
+secrets. The only trade-off: revoking the key breaks both pipelines at once.
+Mint a second key if you want them independent.
+
 1. [App Store Connect → Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api)
 2. **+** to generate a key. Name it `GitHub Actions`, access role **App Manager**.
 3. Note the **Issuer ID** (a UUID, at the top of the page) and the **Key ID**.
@@ -91,10 +97,20 @@ fails immediately with a clear message rather than deep inside a build log.
 ## Shipping a build
 
 **Actions** tab → **iOS TestFlight** → **Run workflow** → set *What to run* to
-**testflight**. (It defaults to `compile-check`, which only builds for the
-simulator and uploads nothing — so a stray click can't burn a build number.
-`compile-check` is also how to verify Swift changes from any branch without a
-Mac.)
+**testflight**. It defaults to `compile-check`, which only builds for the
+simulator and uploads nothing, so a stray click can't burn a build number.
+
+The three choices:
+
+| Choice | What it does | Needs secrets? |
+|---|---|---|
+| `compile-check` | Simulator build. Proves the Swift compiles. | No |
+| `preflight` | Read-only check that the key, IDs and app record line up. Seconds. | Yes |
+| `testflight` | Preflight, then archive, sign, export and upload. | Yes |
+
+Run `preflight` first after adding secrets. If it prints the app name and
+bundle ID, everything Apple-side is correct and `testflight` will get through
+to signing.
 
 Or tag a release:
 
@@ -175,7 +191,18 @@ That's the shakedown the first `testflight` run does.
 
 ## If the first run fails
 
-Most likely causes, roughly in order:
+The `preflight` job runs before any build and turns the common Apple-side
+mistakes into one-line messages:
+
+| Preflight says | Fix |
+|---|---|
+| `Missing repository secrets: ...` | A secret name is misspelled; they're case-sensitive |
+| `Decoded key is not a PEM private key` | The base64 got wrapped or truncated; re-encode with `base64 -w0` |
+| `rejected the key ... NOT_AUTHORIZED` | Key ID or Issuer ID doesn't match this `.p8`, or the key was revoked |
+| `isn't allowed to list apps` | The key's role is Developer; it must be App Manager |
+| `no app record for bundle id` | Typo in `project.yml`, or the app hasn't been created in App Store Connect yet (step 2) |
+
+If preflight passes, anything that fails afterwards is signing or upload:
 
 | Symptom | Cause |
 |---|---|
@@ -185,6 +212,14 @@ Most likely causes, roughly in order:
 | `The bundle version must be higher than...` | A build with that number already exists; re-run (the run number increments) |
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
+
+## Before handing the link to external testers
+
+Internal testers (your own App Store Connect users) get builds the moment
+Apple finishes processing. **External** testers require Beta App Review, and
+reviewers can't sign up: they log in. Create a demo account in the backend
+and record it under the app's TestFlight → Test Information → Sign-in
+required before submitting for review.
 
 The workflow saves the `.ipa` as a run artifact for 14 days even on failure,
 so you can inspect or upload it manually via Transporter if the upload step is
