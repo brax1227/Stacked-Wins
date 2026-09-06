@@ -190,8 +190,14 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 - [x] TestFlight release pipeline (`.github/workflows/ios-testflight.yml`) —
       **unrun**: needs an Apple Developer account and four repo secrets first,
       see `ios/TESTFLIGHT.md`
-- [ ] Register a bundle ID you own and set it in `ios/project.yml`
-- [ ] First shakedown run of the pipeline
+- [x] App Store Connect `preflight` job: proves key + IDs + app record before
+      any archive; also a standalone dispatch choice. Script tested against the
+      real API with a throwaway key.
+- [ ] Register a bundle ID you own and set it in `ios/project.yml` — **do this
+      before the first tag**, or preflight fails on "no app record"
+- [ ] Add the four repository secrets (`ios/TESTFLIGHT.md` step 5)
+- [ ] First shakedown run: push `ios-v0.1.0` (or Run workflow → preflight once
+      merged). Tag pushes can't be made from the Claude session; they're yours.
 - [ ] Undo, keyboard shortcuts, first-run empty state — same open items as web
 - [ ] Configure API base URL
 - [ ] Test API connectivity

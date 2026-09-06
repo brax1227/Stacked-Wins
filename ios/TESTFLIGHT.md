@@ -4,9 +4,18 @@ The pipeline builds, signs, and uploads the iOS app from GitHub Actions, so
 you never need a Mac to release. Setup is one-time and takes about 20 minutes;
 after that, shipping is a button in the Actions tab.
 
-**The build half of this has run and passed on CI.** The signing and upload
-half needs your Apple account and hasn't, so treat the first `testflight` run
-as a shakedown — see [If the first run fails](#if-the-first-run-fails).
+**The build half of this has run and passed on CI**, three times, including
+with the `preflight` and `testflight` jobs correctly skipped on branch pushes.
+The signing and upload half needs your Apple account and hasn't run, so treat
+the first `testflight` run as a shakedown — see
+[If the first run fails](#if-the-first-run-fails).
+
+**You fire the first release run, not CI.** Until this branch is merged to
+`main`, GitHub doesn't register `workflow_dispatch`, and tag pushes are only
+possible from a machine with full push rights. So the sequence is: set the
+bundle ID in `project.yml` (or tell whoever's driving the repo to), add the
+four secrets, then either push an `ios-v*` tag or, once merged, use
+**Run workflow → preflight** from the Actions tab.
 
 ---
 
@@ -111,6 +120,12 @@ The three choices:
 Run `preflight` first after adding secrets. If it prints the app name and
 bundle ID, everything Apple-side is correct and `testflight` will get through
 to signing.
+
+The preflight *script* has been exercised against the real App Store Connect
+API (it correctly reports a rejected key). The preflight *job's* macOS steps
+(`setup-python`, `pip`) have not yet run on a runner, because that requires a
+tag or a dispatch. They are boilerplate; if they fail, the log will say why in
+the first ten lines.
 
 Or tag a release:
 
