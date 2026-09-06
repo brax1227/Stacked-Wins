@@ -83,23 +83,23 @@ this repo. Names must match exactly:
 | `APPLE_TEAM_ID` | The 10-character Team ID from step 4 |
 | `APPSTORE_CONNECT_ISSUER_ID` | The Issuer ID (UUID) from step 3 |
 | `APPSTORE_CONNECT_API_KEY_ID` | The Key ID from step 3 |
-| `APPSTORE_CONNECT_API_KEY_P8_BASE64` | The `.p8` file, base64-encoded (below) |
+| `APPSTORE_CONNECT_API_KEY_P8` | The `.p8` file's contents, pasted exactly as they are (see below) |
 
-To encode the key — on a Mac:
+**The key goes in as plain text.** Open the `.p8` in any text viewer, select
+everything from `-----BEGIN PRIVATE KEY-----` to `-----END PRIVATE KEY-----`
+inclusive, copy, and paste it as the secret's value. Line breaks are fine;
+GitHub secrets are multi-line. Windows or phone line endings are fine too.
 
-```bash
-base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
-```
+**From a phone:** in the Files app, tap the `.p8`. If it won't preview, share
+it to Notes, open it there, select all, copy. Then in Safari on github.com,
+paste it into the secret. That's the whole step.
 
-On Linux, or anywhere with no clipboard:
+If you'd rather base64 it (`base64 -i AuthKey.p8 | pbcopy` on a Mac,
+`base64 -w0 AuthKey.p8` on Linux), that's accepted too.
 
-```bash
-base64 -w0 AuthKey_XXXXXXXXXX.p8
-```
-
-Paste the single-line result as the secret value. The workflow decodes it and
-checks it's a real PEM key before doing anything expensive, so a mangled paste
-fails immediately with a clear message rather than deep inside a build log.
+The workflow parses whatever it's given with `openssl` before doing anything
+expensive, so a truncated or mangled paste fails in the first ten seconds with
+a message saying exactly that.
 
 ---
 
@@ -127,11 +127,16 @@ API (it correctly reports a rejected key). The preflight *job's* macOS steps
 tag or a dispatch. They are boilerplate; if they fail, the log will say why in
 the first ten lines.
 
-Or tag a release:
+Or tag a release. From a terminal:
 
 ```bash
 git tag ios-v0.1.0 && git push origin ios-v0.1.0
 ```
+
+**From a phone or any browser:** the repo's **Releases** page → **Draft a new
+release** → *Choose a tag* → type `ios-v0.1.0` → *Create new tag on publish* →
+set *Target* to the branch you want built → **Publish release**. Publishing
+creates the tag, and the tag push triggers the pipeline.
 
 The run takes roughly 10-20 minutes. Apple then takes another 5-15 minutes to
 process the build before it appears in TestFlight. You'll get an email when
@@ -212,7 +217,7 @@ mistakes into one-line messages:
 | Preflight says | Fix |
 |---|---|
 | `Missing repository secrets: ...` | A secret name is misspelled; they're case-sensitive |
-| `Decoded key is not a PEM private key` | The base64 got wrapped or truncated; re-encode with `base64 -w0` |
+| `isn't a valid private key` | The paste is truncated; copy the whole file, first line to last |
 | `rejected the key ... NOT_AUTHORIZED` | Key ID or Issuer ID doesn't match this `.p8`, or the key was revoked |
 | `isn't allowed to list apps` | The key's role is Developer; it must be App Manager |
 | `no app record for bundle id` | Typo in `project.yml`, or the app hasn't been created in App Store Connect yet (step 2) |
@@ -223,7 +228,7 @@ If preflight passes, anything that fails afterwards is signing or upload:
 |---|---|
 | `No profiles for 'com.x.y' were found` | Bundle ID in `project.yml` doesn't match the registered App ID, or the API key lacks App Manager |
 | `Missing repository secrets: ...` | A secret name is misspelled — they're case-sensitive |
-| `Decoded key is not a PEM private key` | The base64 got line-wrapped or truncated; re-encode with `base64 -w0` |
+| `isn't a valid private key` | The paste is truncated; copy the whole file, first line to last |
 | `The bundle version must be higher than...` | A build with that number already exists; re-run (the run number increments) |
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |

@@ -108,13 +108,13 @@ jobs:
         # inside a wall of xcodebuild output. Secrets come in through env,
         # never interpolated into the script body.
         env:
-          ASC_KEY_P8_BASE64: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8_BASE64 }}
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
         run: |
           missing=()
           [ -n "$ASC_KEY_ID" ] || missing+=(APPSTORE_CONNECT_API_KEY_ID)
           [ -n "$ASC_ISSUER_ID" ] || missing+=(APPSTORE_CONNECT_ISSUER_ID)
           [ -n "$APPLE_TEAM_ID" ] || missing+=(APPLE_TEAM_ID)
-          [ -n "$ASC_KEY_P8_BASE64" ] || missing+=(APPSTORE_CONNECT_API_KEY_P8_BASE64)
+          [ -n "$ASC_KEY_P8" ] || missing+=(APPSTORE_CONNECT_API_KEY_P8)
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing repository secrets: ${missing[*]}"
             echo "See ios/TESTFLIGHT.md for how to create each one."
@@ -122,15 +122,24 @@ jobs:
           fi
 
       - name: Install App Store Connect API key
+        # The secret may be the .p8 file's contents pasted as-is (works from a
+        # phone: open the file, select all, copy, paste) or as one base64 line.
         env:
-          ASC_KEY_P8_BASE64: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8_BASE64 }}
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
-          printf '%s' "$ASC_KEY_P8_BASE64" | openssl base64 -d -A > "$KEY_PATH"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # Raw PEM. Strip CR from a Windows/phone paste; guarantee a final newline.
+            printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$KEY_PATH"
+          else
+            # Base64. Tolerate stray whitespace or line wraps from a clipboard.
+            printf '%s' "$ASC_KEY_P8" | tr -d ' \t\r\n' | openssl base64 -d -A > "$KEY_PATH"
+          fi
           chmod 600 "$KEY_PATH"
-          if ! grep -q "BEGIN PRIVATE KEY" "$KEY_PATH"; then
-            echo "::error::Decoded key is not a PEM private key. Re-copy the secret — see ios/TESTFLIGHT.md."
+          # A real parse, not a grep: a truncated paste fails here, not at signing.
+          if ! openssl pkey -in "$KEY_PATH" -noout 2>/dev/null; then
+            echo "::error::The APPSTORE_CONNECT_API_KEY_P8 secret isn't a valid private key. Re-copy the whole .p8, first line to last — see ios/TESTFLIGHT.md."
             exit 1
           fi
           echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
@@ -183,14 +192,26 @@ jobs:
         run: xcodegen generate
 
       - name: Install App Store Connect API key
-        # Preflight already proved this key decodes and authenticates.
+        # Preflight already proved this key parses and authenticates; same
+        # install, so the archive signs with the identical file.
         env:
-          ASC_KEY_P8_BASE64: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8_BASE64 }}
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
-          printf '%s' "$ASC_KEY_P8_BASE64" | openssl base64 -d -A > "$KEY_PATH"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # Raw PEM. Strip CR from a Windows/phone paste; guarantee a final newline.
+            printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$KEY_PATH"
+          else
+            # Base64. Tolerate stray whitespace or line wraps from a clipboard.
+            printf '%s' "$ASC_KEY_P8" | tr -d ' \t\r\n' | openssl base64 -d -A > "$KEY_PATH"
+          fi
           chmod 600 "$KEY_PATH"
+          # A real parse, not a grep: a truncated paste fails here, not at signing.
+          if ! openssl pkey -in "$KEY_PATH" -noout 2>/dev/null; then
+            echo "::error::The APPSTORE_CONNECT_API_KEY_P8 secret isn't a valid private key. Re-copy the whole .p8, first line to last — see ios/TESTFLIGHT.md."
+            exit 1
+          fi
           echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Archive
