@@ -57,8 +57,10 @@ permissions:
   contents: read
 
 concurrency:
-  # Never let two uploads race for the same build number.
-  group: ios-testflight-${{ github.ref }}
+  # Never let two uploads race for the same build number. Keyed on what the
+  # run does as well as the ref, so a manual release or a "builds" report
+  # doesn't sit in line behind the compile check every push kicks off.
+  group: ios-testflight-${{ github.ref }}-${{ inputs.job || github.event_name }}
   cancel-in-progress: false
 
 jobs:
