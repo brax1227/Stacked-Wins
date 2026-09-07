@@ -1,5 +1,7 @@
 # Stacked Wins — Wellness App
 
+[![CI](https://github.com/brax1227/Stacked-Wins/actions/workflows/ci.yml/badge.svg)](https://github.com/brax1227/Stacked-Wins/actions/workflows/ci.yml)
+
 > Small wins build strong foundations
 
 A mobile and web application focused on mental wellness, self-improvement, habit-building, and identity-level growth. Helps users define meaningful long-term goals, break them into tiny daily actions, and stack small wins over time.

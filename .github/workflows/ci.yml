@@ -1,0 +1,159 @@
+name: CI
+
+# Why: the repo had no CI at all, while backend/ carried 44 passing Jest tests
+# and web/ a Vitest suite — none of which ran on push. This wires up the
+# checks that are proven to pass locally.
+#
+# Note on iOS: ios/ holds 5 loose Swift files with no .xcodeproj and no test
+# target, so there is nothing for CI to build yet. Xcode Cloud is configured
+# in App Store Connect (not here) and needs a paid Apple Developer account.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch instead of burning minutes on
+# results nobody will read.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        # Belt-and-braces: prisma's own postinstall hook normally handles this,
+        # but it's skipped under --ignore-scripts and on some cache restores.
+        # src/utils/prisma.js imports the client at module load, so a missing
+        # client breaks every suite. Cheap step, removes a whole failure class.
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        # `npm test` already excludes tests/integration via
+        # --testPathIgnorePatterns; those need a live Postgres and run in the
+        # separate integration job below.
+        run: npm test
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
+
+  integration:
+    name: Backend integration (Postgres)
+    runs-on: ubuntu-latest
+    # These hit a real database and are the least stable part of the suite.
+    # Keep them off the required path so a flaky DB test can't block a merge;
+    # remove this line once they've proven themselves.
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stacked_wins_test
+        ports:
+          - 5432:5432
+        # Without this the job races the container and fails on connection refused.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/stacked_wins_test?schema=public
+      JWT_SECRET: ci-test-secret-not-used-in-production
+      JWT_EXPIRES_IN: 7d
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push schema to test database
+        # `db push` over `migrate deploy`: the repo has a schema.prisma but no
+        # migrations/ directory, so there is nothing to deploy.
+        run: npx prisma db push --skip-generate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Integration tests
+        run: npm run test:integration
