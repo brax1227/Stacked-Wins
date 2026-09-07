@@ -4,11 +4,12 @@ The pipeline builds, signs, and uploads the iOS app from GitHub Actions, so
 you never need a Mac to release. Setup is one-time and takes about 20 minutes;
 after that, shipping is a button in the Actions tab.
 
-**The build half of this has run and passed on CI**, three times, including
-with the `preflight` and `testflight` jobs correctly skipped on branch pushes.
-The signing and upload half needs your Apple account and hasn't run, so treat
-the first `testflight` run as a shakedown — see
-[If the first run fails](#if-the-first-run-fails).
+**This has run against a real Apple account.** On the first `ios-v0.1.0`
+release: preflight authenticated and found the app record, the archive signed
+automatically with the API key, export produced a signed `.ipa`, and the
+upload reached App Store Connect. Apple rejected that first upload for a
+missing app icon (fixed; see the table below). Everything up to that point is
+proven.
 
 **You fire the first release run, not CI.** Until this branch is merged to
 `main`, GitHub doesn't register `workflow_dispatch`, and tag pushes are only
@@ -223,6 +224,10 @@ mistakes into one-line messages:
 | `no app record for bundle id` | Typo in `project.yml`, or the app hasn't been created in App Store Connect yet (step 2) |
 
 If preflight passes, anything that fails afterwards is signing or upload:
+
+| Upload says | Fix |
+|---|---|
+| `90022 Missing required icon file` / `90713 CFBundleIconName is missing` | The app has no icon in an asset catalog. Ships with one now: `ios/StackedWins/StackedWins/Assets.xcassets/AppIcon.appiconset/Icon-1024.png`. Replace that single 1024×1024 opaque PNG to change it; Xcode derives every other size |
 
 | Symptom | Cause |
 |---|---|

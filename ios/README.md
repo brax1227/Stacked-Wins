@@ -30,7 +30,9 @@ StackedWins/StackedWins/
 ├── Utils/
 │   ├── Config.swift         # Server URL resolution (Settings → Info.plist → localhost)
 │   └── Keychain.swift       # Token storage
-└── Views/
+├── Views/
+├── Assets.xcassets/          # App icon: replace AppIcon.appiconset/Icon-1024.png (1024×1024, opaque)
+└── PrivacyInfo.xcprivacy    # Apple privacy manifest; declares the UserDefaults use
 ```
 
 There is **no `.xcodeproj` in git**. `../project.yml` is the source of truth and

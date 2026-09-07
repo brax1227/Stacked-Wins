@@ -196,8 +196,11 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 - [ ] Register a bundle ID you own and set it in `ios/project.yml` — **do this
       before the first tag**, or preflight fails on "no app record"
 - [ ] Add the four repository secrets (`ios/TESTFLIGHT.md` step 5)
-- [ ] First shakedown run: push `ios-v0.1.0` (or Run workflow → preflight once
-      merged). Tag pushes can't be made from the Claude session; they're yours.
+- [x] First shakedown run (`ios-v0.1.0`): preflight passed, automatic signing
+      passed, export passed, upload reached Apple and was rejected for a missing
+      app icon (90022/90713). Icon + privacy manifest added.
+- [ ] Second run: publish `ios-v0.1.1` from the Releases page
+- [ ] Replace the generated app icon with a designed one when there is one
 - [ ] Undo, keyboard shortcuts, first-run empty state — same open items as web
 - [ ] Configure API base URL
 - [ ] Test API connectivity

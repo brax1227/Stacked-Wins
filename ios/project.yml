@@ -69,6 +69,10 @@ targets:
         # Store Connect app record, and this file, or signing will fail.
         PRODUCT_BUNDLE_IDENTIFIER: com.stackedwins.app
         TARGETED_DEVICE_FAMILY: "1"
+        # The icon set in Assets.xcassets. App Store Connect refuses an upload
+        # without one (errors 90022 / 90713). A single 1024x1024 PNG is enough;
+        # Xcode derives every other size from it.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
 schemes:
   StackedWins:
