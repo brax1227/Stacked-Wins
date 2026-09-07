@@ -218,7 +218,7 @@ mistakes into one-line messages:
 |---|---|
 | `Missing repository secrets: ...` | A secret name is misspelled; they're case-sensitive |
 | `isn't a valid private key` | The paste is truncated; copy the whole file, first line to last |
-| `rejected the key ... NOT_AUTHORIZED` | Key ID or Issuer ID doesn't match this `.p8`, or the key was revoked |
+| `rejected the key ... NOT_AUTHORIZED` | Key ID or Issuer ID doesn't match this `.p8`, or the key was revoked. Most often: you minted a new key and renamed the download, so the Key ID in the secret belongs to a different key. Read the real Key ID off the key's row in Users and Access → Integrations |
 | `isn't allowed to list apps` | The key's role is Developer; it must be App Manager |
 | `no app record for bundle id` | Typo in `project.yml`, or the app hasn't been created in App Store Connect yet (step 2) |
 
