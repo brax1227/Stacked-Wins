@@ -56,6 +56,22 @@ the default `http://localhost:3001` just works. On a real phone, open the
 See [TESTFLIGHT.md](./TESTFLIGHT.md). Releases are built and uploaded by
 GitHub Actions; nobody needs a Mac for that.
 
+## Tests
+
+`StackedWinsTests/` holds the unit tests, run by the `compile-check` CI job on
+every PR and every branch push touching Swift, and locally with `Cmd+U`.
+
+- `ModelContractTests` decodes fixtures shaped exactly like the backend's real
+  responses (camelCase keys, ISO 8601 strings, Prisma nulls). A drift between
+  the models and the API only ever surfaces as a runtime decode failure on a
+  phone, which is the most expensive place to find it.
+- `ConfigTests` covers the server-URL resolution order and the normalisation
+  of what a person types into the Server screen.
+- `APIClientTests` covers the pieces of the networking layer that need no server.
+
+The Foundation-only tests also run on Linux with a stock Swift toolchain, so
+they can be executed without a Mac (that's how they were first run).
+
 ## Working without a Mac
 
 The networking layer (`Models/`, `Services/`, `Utils/Config.swift`) is

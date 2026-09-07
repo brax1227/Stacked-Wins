@@ -74,11 +74,28 @@ targets:
         # Xcode derives every other size from it.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
+  StackedWinsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StackedWins/StackedWinsTests
+    dependencies:
+      - target: StackedWins
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stackedwins.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   StackedWins:
     build:
       targets:
         StackedWins: all
+        StackedWinsTests: [test]
+    test:
+      config: Debug
+      targets:
+        - StackedWinsTests
     run:
       config: Debug
     archive:

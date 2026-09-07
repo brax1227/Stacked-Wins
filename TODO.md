@@ -51,6 +51,8 @@
       break-it-up with the Claude assist, Everything with ranking, and a Server
       screen so a TestFlight build can hit a laptop backend. Written without a
       Mac: Foundation layer typechecked on Linux, SwiftUI parse-checked only.
+- [x] **Unit-test target** with API contract, config and client tests; CI runs
+      them on a simulator on every push. First executed on Linux via XCTest.
 - [x] **First real compile of the iOS app** — `compile-check` on `macos-latest`
       (Xcode 26.6): 16 files, arm64 + x86_64, zero errors, zero warnings, first
       try. Runs automatically on every branch push touching `ios/` now.

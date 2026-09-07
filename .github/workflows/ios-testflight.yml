@@ -56,8 +56,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Cheap guard so the iOS app can't silently stop compiling. Simulator build,
-  # no code signing, no credentials needed. Runs on PRs, and on demand from
+  # Guard so the iOS app can't silently stop compiling, and its unit tests
+  # can't silently stop passing. Simulator only, no signing, no credentials. Runs on PRs, and on demand from
   # any branch — the way to verify Swift written without a Mac.
   compile-check:
     if: >-
@@ -75,14 +75,23 @@ jobs:
         working-directory: ios
         run: xcodegen generate
 
-      - name: Build for simulator (no signing)
+      - name: Build and test on a simulator (no signing)
+        # `xcodebuild test` builds the app and the test bundle, then runs the
+        # unit tests. The simulator is resolved at runtime: runner images
+        # rotate their device sets, and a pinned name breaks silently.
         run: |
-          xcodebuild build \
+          set -euo pipefail
+          SIM=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+[^(]*' | head -1 | sed 's/[[:space:]]*$//')
+          if [ -z "$SIM" ]; then
+            echo "::error::No available iPhone simulator on this runner"
+            exit 1
+          fi
+          echo "Testing on: $SIM"
+          xcodebuild test \
             -project ios/StackedWins.xcodeproj \
             -scheme StackedWins \
             -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,name=$SIM" \
             CODE_SIGNING_ALLOWED=NO
 
   # Proves the key, the IDs, and the App Store Connect app record all line up
