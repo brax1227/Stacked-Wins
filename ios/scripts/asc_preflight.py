@@ -137,7 +137,8 @@ def report_builds(token: str, app_id: str) -> None:
 
     status, body = get(
         token,
-        f"/apps/{app_id}/builds?sort=-uploadedDate&limit=10"
+        # The top-level endpoint: /apps/{id}/builds refuses `sort`.
+        f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10"
         "&fields[builds]=version,processingState,uploadedDate,expired,betaGroups"
         "&include=betaGroups&fields[betaGroups]=name",
     )
@@ -169,7 +170,7 @@ def distribute_latest(token: str, app_id: str) -> None:
     Idempotent; internal groups only."""
     status, body = get(
         token,
-        f"/apps/{app_id}/builds?sort=-uploadedDate&limit=10"
+        f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10"
         "&fields[builds]=version,processingState,expired,betaGroups&include=betaGroups&fields[betaGroups]=name",
     )
     if status != 200:
