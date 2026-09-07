@@ -47,6 +47,12 @@
       database. One-tap moves need a one-tap undo.
 - [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
       Should route to `/dump` on first visit rather than showing an empty lane.
+- [x] **iOS works with no server.** The first TestFlight install hit "failed to
+      connect to server" on sign-up, because there is no backend online. Now
+      the stack lives on the phone by default (`LocalStackStore`, same rules
+      as the API, 23 tests), the app opens straight to it, and a server is an
+      opt-in under the ⋯ menu. Not done: carrying the phone's stack up to a
+      server on first sign-in — today the two are separate stacks.
 - [x] **iOS: the same screens.** Sign in, dump, one card + four moves, lanes,
       break-it-up with the Claude assist, Everything with ranking, and a Server
       screen so a TestFlight build can hit a laptop backend. Written without a

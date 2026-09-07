@@ -1,7 +1,10 @@
 import SwiftUI
 
+/// Optional. The stack lives on the phone until the user asks for a server;
+/// this sheet is where they ask. Reached from the menu, never on launch.
 struct LoginView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var email = ""
     @State private var password = ""
@@ -20,10 +23,11 @@ struct LoginView: View {
                 Spacer(minLength: 24)
 
                 VStack(spacing: 8) {
-                    Text("Stacked Wins")
+                    Text("Sign in to a server")
                         .font(.largeTitle.weight(.bold))
-                    Text("Put it all down. See one thing.")
+                    Text("Optional. Your stack already lives on this phone. Sign in to keep it on a Stacked Wins server instead, and to use it from the web app too.")
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
 
                 VStack(spacing: 12) {
@@ -84,6 +88,11 @@ struct LoginView: View {
                 }
             }
             .padding(.horizontal, 28)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Not now") { dismiss() }
+                }
+            }
             .sheet(isPresented: $showSettings) {
                 ServerSettingsView()
             }
@@ -104,6 +113,7 @@ struct LoginView: View {
                 } else {
                     try await appState.signIn(email: email, password: password)
                 }
+                dismiss()
             } catch {
                 errorMessage = error.localizedDescription
             }

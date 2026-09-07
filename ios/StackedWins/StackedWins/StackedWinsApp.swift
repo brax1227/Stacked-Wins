@@ -6,14 +6,10 @@ struct StackedWinsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if appState.isAuthenticated {
-                    RootView()
-                } else {
-                    LoginView()
-                }
-            }
-            .environmentObject(appState)
+            // Straight to the stack. No sign-in, no onboarding: the first
+            // thing you see is the one card (or the box to put things down).
+            RootView()
+                .environmentObject(appState)
         }
     }
 }

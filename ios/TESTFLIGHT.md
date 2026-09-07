@@ -189,11 +189,13 @@ cd ios && xcodegen generate && open StackedWins.xcodeproj
 
 ## What ships
 
-The real app: sign in, dump, one card with the four moves, both lanes, the
-Claude break-it-up assist, and the Everything list with ranking. It talks to
-the same backend as the web app.
+The real app: dump, one card with the four moves, both lanes, and the
+Everything list with ranking. Out of the box the stack lives on the phone —
+no account, no server, nothing to connect to. Signing in to a server (⋯ menu)
+is optional and adds the Claude break-it-up assist and the web app on the
+same stack.
 
-**What it points at** is set two ways. CI bakes `API_BASE_URL` into the build
+**What a signed-in build points at** is set two ways. CI bakes `API_BASE_URL` into the build
 from a repository *variable* of that name (Settings → Secrets and variables →
 Actions → **Variables**) — set it to wherever your backend is deployed. If it's
 unset the build defaults to `localhost`, which on a phone means the phone.
