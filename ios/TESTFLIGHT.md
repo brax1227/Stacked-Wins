@@ -240,13 +240,30 @@ If preflight passes, anything that fails afterwards is signing or upload:
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
 
+## "The upload said it succeeded but I don't see the build in TestFlight"
+
+Run the workflow with **builds**. It prints what Apple has: every recent
+build with its processing state, and which tester groups hold it.
+
+| It says | Meaning |
+|---|---|
+| `PROCESSING` | Apple is still working on it; usually 10–20 minutes, sometimes an hour |
+| `FAILED` / `INVALID` | Apple rejected it after upload; App Store Connect emails the reason |
+| `VALID ... in: no tester group` | Processed fine, but no group was handed the build. Groups created without "Enable automatic distribution" need every new build added by hand |
+
+For that last case, run the workflow with **distribute**: it hands the newest
+processed build to every internal tester group that doesn't have it. Internal
+groups only, never external testers or App Review. External testers also need
+"Sign-in required" answered under Test Information; the app itself no longer
+needs an account, so it's "no".
+
 ## Before handing the link to external testers
 
 Internal testers (your own App Store Connect users) get builds the moment
 Apple finishes processing. **External** testers require Beta App Review, and
-reviewers can't sign up: they log in. Create a demo account in the backend
-and record it under the app's TestFlight → Test Information → Sign-in
-required before submitting for review.
+reviewers need to open the app cold. Since the stack lives on the phone and
+no account is needed, answer "no" to Sign-in required under TestFlight →
+Test Information. Only a build pointed at a real server needs a demo login.
 
 The workflow saves the `.ipa` as a run artifact for 14 days even on failure,
 so you can inspect or upload it manually via Transporter if the upload step is
