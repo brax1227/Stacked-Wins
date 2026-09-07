@@ -46,10 +46,16 @@ brew install xcodegen
 cd ios && xcodegen generate && open StackedWins.xcodeproj
 ```
 
-Start the backend (`cd backend && npm run dev`, port 3001). In the simulator
-the default `http://localhost:3001` just works. On a real phone, open the
-**⋯ → Server** menu and enter your Mac's Wi-Fi address, e.g.
+No backend needed. The stack lives on the phone (`Services/LocalStackStore.swift`,
+one JSON file in Application Support) and the app opens straight to it — the
+very first open goes to the dump box, every open after that to the one card.
+
+To use a server instead, start the backend (`cd backend && npm run dev`, port
+3001) and pick **⋯ → Sign in to a server** in the app. In the simulator the
+default `http://localhost:3001` just works. On a real phone, tap the address
+at the bottom of the sign-in sheet and enter your Mac's Wi-Fi address, e.g.
 `http://192.168.1.20:3001` — plain http is allowed for local addresses only.
+Signing out returns to the phone's own stack, which is untouched.
 
 ## Shipping
 
@@ -68,6 +74,10 @@ every PR and every branch push touching Swift, and locally with `Cmd+U`.
 - `ConfigTests` covers the server-URL resolution order and the normalisation
   of what a person types into the Server screen.
 - `APIClientTests` covers the pieces of the networking layer that need no server.
+- `LocalStackStoreTests` runs every move against the on-device store with a
+  fixed clock: dump order, "not now" to the back, "not today" until midnight
+  local time, split pieces first, ranking, letting go, and that the file
+  survives a relaunch. Mirrors `backend/tests/stack.test.js`.
 
 The Foundation-only tests also run on Linux with a stock Swift toolchain, so
 they can be executed without a Mac (that's how they were first run).

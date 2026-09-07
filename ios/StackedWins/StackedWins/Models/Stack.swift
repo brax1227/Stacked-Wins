@@ -28,18 +28,18 @@ enum StackKind: String, Codable, CaseIterable, Identifiable {
 /// One thing the user is carrying. Deliberately no due date, priority or
 /// estimate -- structure is a tax charged when the user has the least to give.
 struct StackItem: Codable, Identifiable, Equatable {
-    let id: String
-    let title: String
-    let kind: StackKind
+    var id: String
+    var title: String
+    var kind: StackKind
     /// 'open' | 'done' | 'dropped' | 'split'
-    let status: String
-    let position: Double
-    let snoozedUntil: String?
-    let pushCount: Int
-    let parentId: String?
-    let completedAt: String?
-    let createdAt: String
-    let updatedAt: String
+    var status: String
+    var position: Double
+    var snoozedUntil: String?
+    var pushCount: Int
+    var parentId: String?
+    var completedAt: String?
+    var createdAt: String
+    var updatedAt: String
 
     var isSleeping: Bool { snoozedUntil != nil }
 }
@@ -58,7 +58,7 @@ struct LaneCounts: Codable, Equatable {
 /// GET /api/stack/next — exactly one card, never a list.
 struct NextCard: Codable, Equatable {
     let item: StackItem?
-    let kind: StackKind
+    var kind: StackKind
     /// The card keeps getting pushed; offer to break it down before they ask.
     let suggestSplit: Bool
     let remaining: Int
@@ -71,7 +71,7 @@ struct NextCard: Codable, Equatable {
 /// belongs on, because its whole point is that the pile has edges.
 struct StackList: Codable {
     let items: [StackItem]
-    let kind: StackKind
+    var kind: StackKind
     let remaining: Int
     let sleeping: Int
     let done: Int
@@ -86,7 +86,7 @@ struct StackCapabilities: Codable {
 
 struct DumpResult: Codable {
     let added: Int
-    let kind: StackKind
+    var kind: StackKind
 }
 
 struct SplitSuggestion: Codable {
