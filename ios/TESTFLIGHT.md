@@ -145,9 +145,12 @@ it's ready, and you add testers in App Store Connect → your app → TestFlight
 
 ### Version numbers
 
-- **Build number** is set automatically to the workflow run number, so every
-  upload is unique. App Store Connect rejects a repeated build number, which
-  is the single most common cause of a failed upload.
+- **Build number** is the workflow run number, so every upload is unique.
+  App Store Connect rejects a repeated build number, which is the single most
+  common cause of a failed upload. The upload step logs the exact
+  `version (build)` TestFlight will show, read out of the `.ipa` itself.
+  (The first two uploads showed as builds 1 and 2: Xcode's export was
+  quietly renumbering them. That's now switched off.)
 - **Version** shown to testers is `MARKETING_VERSION` in `ios/project.yml`.
   Bump it by hand for a real release.
 
