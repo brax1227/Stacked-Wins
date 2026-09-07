@@ -267,6 +267,12 @@ jobs:
             <string>automatic</string>
             <key>uploadSymbols</key>
             <true/>
+            <!-- Off, or Xcode replaces the build number with "next one on
+                 App Store Connect" (1, 2, 3...) and the number in this log,
+                 the artifact name and TestFlight all disagree. The run
+                 number only ever goes up, so it is always acceptable. -->
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
             <key>destination</key>
             <string>export</string>
           </dict>
@@ -291,7 +297,11 @@ jobs:
             echo "::error::No .ipa was produced by the export step."
             exit 1
           fi
-          echo "Uploading $(basename "$IPA") as build ${{ github.run_number }}"
+          # Read the number out of the .ipa itself rather than trusting the
+          # build setting: this is the number TestFlight will show.
+          BUILD=$(unzip -p "$IPA" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw -o - - 2>/dev/null || echo "?")
+          VERSION=$(unzip -p "$IPA" 'Payload/*.app/Info.plist' | plutil -extract CFBundleShortVersionString raw -o - - 2>/dev/null || echo "?")
+          echo "::notice::Uploading $(basename "$IPA") — TestFlight will show it as $VERSION ($BUILD)"
           xcrun altool --upload-app \
             --file "$IPA" \
             --type ios \
