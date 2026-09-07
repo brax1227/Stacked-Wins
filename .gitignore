@@ -60,3 +60,7 @@ coverage/
 # Misc
 *.pem
 *.key
+
+# Python bytecode from ios/scripts
+__pycache__/
+*.pyc

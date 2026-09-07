@@ -14,6 +14,14 @@ Env:
 
 Exit 0 and print the app record on success; exit 1 with a plain-language
 reason otherwise. Every failure mode maps to one thing the human can fix.
+
+Optional, for "I uploaded a build and can't see it in TestFlight":
+  ASC_REPORT=builds       also list the recent builds as Apple sees them
+                          (processing state, which tester groups have them)
+  ASC_DISTRIBUTE=latest   also hand the newest processed build to every
+                          internal tester group that doesn't have it yet.
+                          Internal groups only: the people already on the
+                          team, never external testers or App Review.
 """
 import json
 import os
@@ -74,6 +82,135 @@ def get(token: str, path: str) -> tuple[int, dict]:
         fail(f"Could not reach App Store Connect: {exc.reason}")
 
 
+def post(token: str, path: str, payload: dict) -> tuple[int, dict]:
+    req = urllib.request.Request(
+        f"{API}{path}",
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.status, json.loads(resp.read() or b"{}")
+    except urllib.error.HTTPError as exc:
+        try:
+            body = json.loads(exc.read() or b"{}")
+        except json.JSONDecodeError:
+            body = {}
+        return exc.code, body
+    except urllib.error.URLError as exc:
+        fail(f"Could not reach App Store Connect: {exc.reason}")
+
+
+def apple_said(body: dict) -> str:
+    errors = body.get("errors") if isinstance(body, dict) else None
+    if not errors:
+        return ""
+    first = errors[0]
+    return f" (Apple said: {first.get('code', '?')} — {first.get('detail', first.get('title', ''))})"
+
+
+def report_builds(token: str, app_id: str) -> None:
+    """What TestFlight actually has. The usual answers to "I don't see the
+    build": it's still processing, processing failed, or it processed fine
+    but no tester group was given it."""
+    status, body = get(
+        token,
+        f"/apps/{app_id}/betaGroups?fields[betaGroups]=name,isInternalGroup,hasAccessToAllBuilds&limit=50",
+    )
+    if status != 200:
+        fail(f"Could not list tester groups: HTTP {status}{apple_said(body)}")
+    groups = body.get("data", [])
+    print("")
+    print("Tester groups:")
+    if not groups:
+        print("  (none) — nobody can install anything until a group exists. TestFlight > Internal Testing > +")
+    for group in groups:
+        attrs = group.get("attributes", {})
+        kind = "internal" if attrs.get("isInternalGroup") else "external"
+        auto = "gets every new build automatically" if attrs.get("hasAccessToAllBuilds") else "builds must be added by hand"
+        print(f"  - {attrs.get('name')}  [{kind}, {auto}]")
+
+    status, body = get(
+        token,
+        f"/apps/{app_id}/builds?sort=-uploadedDate&limit=10"
+        "&fields[builds]=version,processingState,uploadedDate,expired,betaGroups"
+        "&include=betaGroups&fields[betaGroups]=name",
+    )
+    if status != 200:
+        fail(f"Could not list builds: HTTP {status}{apple_said(body)}")
+    names = {
+        inc["id"]: inc.get("attributes", {}).get("name", inc["id"])
+        for inc in body.get("included", [])
+        if inc.get("type") == "betaGroups"
+    }
+    builds = body.get("data", [])
+    print("")
+    print("Builds, newest first:")
+    if not builds:
+        print("  (none) — no upload has reached App Store Connect for this app.")
+    for build in builds:
+        attrs = build.get("attributes", {})
+        linked = build.get("relationships", {}).get("betaGroups", {}).get("data", []) or []
+        in_groups = ", ".join(names.get(g["id"], g["id"]) for g in linked) or "no tester group"
+        expired = ", EXPIRED" if attrs.get("expired") else ""
+        print(
+            f"  - build {attrs.get('version')}: {attrs.get('processingState')}{expired}, "
+            f"uploaded {attrs.get('uploadedDate')}, in: {in_groups}"
+        )
+
+
+def distribute_latest(token: str, app_id: str) -> None:
+    """Give the newest processed build to every internal group missing it.
+    Idempotent; internal groups only."""
+    status, body = get(
+        token,
+        f"/apps/{app_id}/builds?sort=-uploadedDate&limit=10"
+        "&fields[builds]=version,processingState,expired,betaGroups&include=betaGroups&fields[betaGroups]=name",
+    )
+    if status != 200:
+        fail(f"Could not list builds: HTTP {status}{apple_said(body)}")
+    ready = [
+        b for b in body.get("data", [])
+        if b.get("attributes", {}).get("processingState") == "VALID" and not b.get("attributes", {}).get("expired")
+    ]
+    if not ready:
+        print("::warning::No processed build to hand out yet — check the list above; PROCESSING means wait, FAILED/INVALID means Apple rejected it.")
+        return
+    latest = ready[0]
+    version = latest["attributes"].get("version")
+    already = {g["id"] for g in (latest.get("relationships", {}).get("betaGroups", {}).get("data", []) or [])}
+
+    status, body = get(
+        token, f"/apps/{app_id}/betaGroups?fields[betaGroups]=name,isInternalGroup&limit=50"
+    )
+    if status != 200:
+        fail(f"Could not list tester groups: HTTP {status}{apple_said(body)}")
+    internal = [g for g in body.get("data", []) if g.get("attributes", {}).get("isInternalGroup")]
+    if not internal:
+        fail("There is no internal tester group. TestFlight > Internal Testing > + , then add yourself.")
+
+    print("")
+    for group in internal:
+        name = group.get("attributes", {}).get("name")
+        if group["id"] in already:
+            print(f"  build {version} is already in '{name}'")
+            continue
+        status, body = post(
+            token,
+            f"/betaGroups/{group['id']}/relationships/builds",
+            {"data": [{"type": "builds", "id": latest["id"]}]},
+        )
+        if status in (200, 204):
+            print(f"::notice::Handed build {version} to '{name}'. It shows up in the TestFlight app within a minute.")
+        else:
+            fail(f"Could not add build {version} to '{name}': HTTP {status}{apple_said(body)}")
+
+
 def main() -> None:
     key_id = need("ASC_KEY_ID")
     issuer_id = need("ASC_ISSUER_ID")
@@ -117,6 +254,11 @@ def main() -> None:
     print(f"  Bundle ID:  {attrs.get('bundleId')}")
     print(f"  ASC app id: {app.get('id')}")
     print(f"  SKU:        {attrs.get('sku')}")
+
+    if os.environ.get("ASC_REPORT", "").strip() == "builds":
+        report_builds(token, app["id"])
+    if os.environ.get("ASC_DISTRIBUTE", "").strip() == "latest":
+        distribute_latest(token, app["id"])
 
 
 if __name__ == "__main__":
