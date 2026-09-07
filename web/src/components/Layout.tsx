@@ -12,11 +12,18 @@ export const Layout = ({ children }: LayoutProps) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const navItems = [
+    { path: '/now', label: 'Now' },
+    { path: '/dump', label: 'Add' },
     { path: '/daily-plan', label: 'Daily Plan' },
     { path: '/dashboard', label: 'Dashboard' },
     // Coach chat disabled - can be enabled if users request it
     // { path: '/coach', label: 'Coach' },
   ];
+
+  // The one-card screen is the whole product, and a nav bar full of other
+  // places to go is exactly the kind of choosing it exists to remove. On /now
+  // we keep only the way back out. See PROBLEM.md.
+  const isFocusScreen = location.pathname === '/now';
 
   if (!isAuthenticated) {
     return <>{children}</>;
@@ -30,12 +37,12 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/daily-plan" className="text-xl font-bold text-primary-700">
+                <Link to="/now" className="text-xl font-bold text-primary-700">
                   Stacked Wins
                 </Link>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navItems.map((item) => (
+                {(isFocusScreen ? [] : navItems).map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}

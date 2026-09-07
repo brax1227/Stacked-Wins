@@ -31,7 +31,7 @@ export const OnboardingPage = () => {
   const generatePlanMutation = useMutation({
     mutationFn: () => planService.generatePlan(),
     onSuccess: () => {
-      navigate('/daily-plan');
+      navigate('/now');
     },
   });
 

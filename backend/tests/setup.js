@@ -55,6 +55,16 @@ const mockPrisma = {
   milestone: {
     findFirst: jest.fn(),
   },
+  stackItem: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    createMany: jest.fn(),
+    update: jest.fn(),
+    aggregate: jest.fn(),
+    count: jest.fn(),
+  },
+  $transaction: jest.fn(),
   $disconnect: jest.fn(),
 };
 
@@ -79,13 +89,14 @@ jest.unstable_mockModule(loggerModulePath, () => ({
   logger: mockLogger,
 }));
 
-// Mock OpenAI
-jest.unstable_mockModule('openai', () => ({
+// Mock the Anthropic SDK. Nothing in the test suite should reach the network,
+// and the client is built lazily so this only matters for tests that exercise
+// an AI path directly.
+jest.unstable_mockModule('@anthropic-ai/sdk', () => ({
   default: jest.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: jest.fn(),
-      },
+    messages: {
+      create: jest.fn(),
+      parse: jest.fn(),
     },
   })),
 }));

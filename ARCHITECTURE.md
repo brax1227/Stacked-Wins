@@ -18,7 +18,7 @@
        ┌──────────┼──────────┐
        │          │          │
 ┌──────▼─────┐ ┌─▼──────┐ ┌─▼────────┐
-│ PostgreSQL │ │ OpenAI │ │  Push    │
+│ PostgreSQL │ │ Claude │ │  Push    │
 │  Database  │ │   API  │ │ Notify   │
 └────────────┘ └────────┘ └──────────┘
 ```
@@ -41,7 +41,7 @@
 - Express.js
 - PostgreSQL (via Prisma)
 - JWT for auth
-- OpenAI/Anthropic SDK
+- Anthropic SDK (`@anthropic-ai/sdk`)
 - Winston for logging
 
 **Key Endpoints:**
@@ -222,7 +222,7 @@ POST   /api/checkin
 ### Plan Generation Flow
 
 1. User completes assessment
-2. Backend sends assessment data to AI (OpenAI/Anthropic)
+2. Backend sends assessment data to Claude
 3. AI generates structured plan:
    - Vision statement
    - 3 milestones
@@ -351,7 +351,7 @@ POST   /api/checkin
 ### Health Checks
 - `/health` endpoint
 - Database connectivity
-- External API status (OpenAI)
+- External API status (Anthropic)
 - Response time monitoring
 
 ## Future Considerations

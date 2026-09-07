@@ -17,6 +17,21 @@ dist/
 build/
 *.swiftpm
 *.xcodeproj/xcuserdata/
+
+# iOS build artifacts. The Xcode project and Info.plist are GENERATED from
+# ios/project.yml by XcodeGen — never commit them, edit the spec instead.
+ios/StackedWins.xcodeproj/
+ios/StackedWins/Info.plist
+ios/build/
+build/
+DerivedData/
+*.xcarchive
+*.ipa
+# Signing material must never land in the repo.
+*.p8
+*.p12
+*.mobileprovision
+*.cer
 *.xcworkspace/xcuserdata/
 
 # OS

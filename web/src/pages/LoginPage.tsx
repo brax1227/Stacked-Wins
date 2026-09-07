@@ -19,7 +19,7 @@ export const LoginPage = () => {
 
     try {
       await login(email, password);
-      navigate('/onboarding');
+      navigate('/now');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
     } finally {

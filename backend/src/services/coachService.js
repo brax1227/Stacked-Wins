@@ -1,11 +1,7 @@
 import prisma from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
 import { getBaselineSummary, getUserBaseline, calculateProgress } from './baselineService.js';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { getAnthropic, CLAUDE_MODEL } from '../utils/anthropic.js';
 
 /**
  * Get coaching context for AI
@@ -125,11 +121,22 @@ export const sendCoachMessage = async (userId, message) => {
       take: 5,
     });
 
-    // Build conversation history
-    const conversationHistory = recentChats.reverse().map((chat) => ({
-      role: chat.role,
-      content: chat.role === 'user' ? chat.message : chat.response,
-    }));
+    // Build conversation history.
+    //
+    // The Messages API rejects empty content and requires the first entry to
+    // be a user turn. Taking the last N rows can land mid-exchange, so drop
+    // blanks and trim any leading assistant turn rather than 400 on it.
+    const conversationHistory = recentChats
+      .reverse()
+      .map((chat) => ({
+        role: chat.role,
+        content: (chat.role === 'user' ? chat.message : chat.response) ?? '',
+      }))
+      .filter((entry) => entry.content.trim().length > 0);
+
+    while (conversationHistory.length > 0 && conversationHistory[0].role !== 'user') {
+      conversationHistory.shift();
+    }
 
     // Create system prompt
     const systemPrompt = `You are a wellness coach for the Stacked Wins app. Your role is to:
@@ -153,25 +160,22 @@ Respond in a supportive, structured way. Keep responses under 200 words unless t
       messageLength: message.length,
     });
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        ...conversationHistory,
-        {
-          role: 'user',
-          content: message,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
+    // The system prompt is a top-level field on the Messages API rather than
+    // the first entry of the messages array.
+    const client = getAnthropic();
+    const completion = await client.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [...conversationHistory, { role: 'user', content: message }],
     });
 
-    const response = completion.choices[0].message.content;
+    // content is a list of blocks -- pick out the text ones.
+    const response = completion.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+      .trim();
 
     // Save chat history
     await prisma.coachChat.createMany({

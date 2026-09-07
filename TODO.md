@@ -1,5 +1,94 @@
 # Stacked Wins — Current To-Do List
 
+> **Direction changed.** The problem we're solving is now the one in
+> [PROBLEM.md](./PROBLEM.md): a pile held in your head that freezes you, fixed
+> by dumping it out and seeing one thing at a time. The growth-plan work below
+> is Layer 2 and is on hold — not deleted, just no longer the front door.
+
+## ✅ The Stack — core loop (done)
+
+- [x] `StackItem` model (Prisma) — no due dates or estimates by design
+- [x] `POST /api/stack/dump` — brain dump, one thing per line, forgiving parsing
+- [x] `GET /api/stack/next` — exactly one card, never a list
+- [x] The four moves: `done`, `push` ("Not now"), `later` ("Not today"), `split` ("Too big")
+- [x] `GET /api/stack` + `POST /api/stack/:id/drop` — the opt-in full list
+- [x] Split hint after 3 pushes ("this might be bigger than one thing")
+- [x] Web: `/dump`, `/now`, `/stack`; `/now` is the front door after login
+- [x] Nav hidden on `/now` so the one-card screen stays a one-card screen
+- [x] Two lanes: **Need to** / **Want to** — one choice per dump session, never a gate
+- [x] Optional ranking (`↑ ↓ do first`) on `/stack` only; dump order is the default
+- [x] `POST /api/stack/:id/kind` and `/rank`; lane-aware dump, next, push and split
+- [x] Empty Need lane points you at the Want lane — clearing needs is the reward
+- [x] **"I don't know where to start"** — Claude suggests the smallest first steps
+      on the "Too big" screen. Suggests only: pieces land in the editable box and
+      nothing is written until the user confirms.
+- [x] Ported plan generation and coach chat from OpenAI to Claude, with structured
+      outputs replacing hand-parsed JSON
+- [x] AI client built lazily — a missing key no longer stops the server booting,
+      it just hides the suggestion button (`GET /api/stack/capabilities`)
+- [x] Tests: 60 backend (service + endpoints + assist), 9 web (one-card + lane contract)
+
+## 🚧 The Stack — next up (HIGH PRIORITY)
+
+- [ ] **Get `stack_items` into the database.** Note this repo has never had a
+      migrations directory, so the first `migrate dev` baselines the *whole*
+      schema, not just this table:
+  ```bash
+  cd backend && npx prisma migrate dev --name init   # first time, creates everything
+  # or, for a scratch dev database:
+  cd backend && npx prisma db push
+  ```
+- [ ] **Cleared history screen** — `GET /api/stack?status=done` has no UI yet. This
+      is where "wins stack" becomes visible, and it's the only place a growing
+      number is a good thing.
+- [ ] **Keyboard shortcuts on `/now`** — the four moves on 1–4 or D/N/T/B. Every
+      tap saved is friction removed from the one screen that matters.
+- [ ] **Undo the last move** — a mis-tapped "Done" currently needs a trip to the
+      database. One-tap moves need a one-tap undo.
+- [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
+      Should route to `/dump` on first visit rather than showing an empty lane.
+- [x] **iOS: the same screens.** Sign in, dump, one card + four moves, lanes,
+      break-it-up with the Claude assist, Everything with ranking, and a Server
+      screen so a TestFlight build can hit a laptop backend. Written without a
+      Mac: Foundation layer typechecked on Linux, SwiftUI parse-checked only.
+- [x] **Unit-test target** with API contract, config and client tests; CI runs
+      them on a simulator on every push. First executed on Linux via XCTest.
+- [x] **First real compile of the iOS app** — `compile-check` on `macos-latest`
+      (Xcode 26.6): 16 files, arm64 + x86_64, zero errors, zero warnings, first
+      try. Runs automatically on every branch push touching `ios/` now.
+- [ ] **Set the `API_BASE_URL` repository variable** once the backend is deployed
+      somewhere a phone can reach.
+- [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
+      that has to wait until you open the app is a thing that stays in your head.
+
+## 🤔 The Stack — open questions
+
+- [ ] **Drag-to-reorder on `/stack`.** Arrows and "do first" are robust and work
+      on touch; dragging fits the "physically arrange it" instinct better. Needs
+      a touch-capable approach, not HTML5 drag-and-drop.
+- [ ] **Does "Not today" need a "not this week"?** Risk: every option added is a
+      decision, and decisions are the failure mode. Probably no.
+- [ ] **Should `/now` ever show progress?** PROBLEM.md says no — the size of the
+      pile is what freezes them. Worth testing whether *cleared today* (a number
+      that only goes up) is different enough to be safe.
+- [ ] **Watch the lanes for scope creep.** Two buckets is the whole taxonomy. The
+      moment someone asks for a third, or for tags, re-read PROBLEM.md first —
+      every bucket added is a decision charged at capture time.
+- [ ] **Recurring things.** Real, but recurrence is structure, and structure is
+      the tax we refuse to charge. Needs a design that costs the user nothing.
+- [ ] **Tune the split assist.** It runs at `output_config.effort: 'low'` — a
+      deliberate per-route choice for a short, tightly-specified extraction that
+      may be hit many times a sitting. Raise it if suggestions come back shallow.
+- [ ] **Measure what the assist actually costs** before opening it up. Nothing in
+      the app rate-limits it beyond the global limiter.
+
+---
+
+## ⏸️ Layer 2 — Growth Plan (ON HOLD)
+
+Everything below was the previous direction. Kept for when a user is unfrozen
+and asking "where is this going?" — see PROBLEM.md.
+
 ## 🚧 Backend API Implementation (HIGH PRIORITY)
 
 The frontend UI is complete, but all backend endpoints need to be implemented.
@@ -26,7 +115,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 ### 3. Plan Endpoints
 - [ ] `POST /api/plan/generate` - Generate AI growth plan
   - Get user's assessment
-  - Call OpenAI/Anthropic API with assessment data
+  - Call the Anthropic API with assessment data
   - Parse AI response into structured plan
   - Save plan to database
   - Create initial tasks
@@ -66,7 +155,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 - [ ] `POST /api/coach/chat` - Send message to AI coach
   - Get user's plan, recent check-ins, progress
   - Build context for AI
-  - Call OpenAI/Anthropic API
+  - Call the Anthropic API
   - Save chat history
   - Return response
 - [ ] `GET /api/coach/history` - Get chat history
@@ -87,7 +176,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ## 🤖 AI Integration
 
-- [ ] Set up OpenAI or Anthropic API client
+- [x] Set up Anthropic API client (`src/utils/anthropic.js`, lazily constructed)
 - [ ] Create prompt templates for:
   - Plan generation
   - Coach responses
@@ -97,11 +186,24 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ## 📱 iOS App Setup
 
-- [ ] Create Xcode project
-  - File → New → Project
-  - iOS App template
-  - SwiftUI interface
-- [ ] Move existing Swift files into project
+- [x] Xcode project — defined in `ios/project.yml`, generated by XcodeGen in CI
+      (no `.xcodeproj` in git; add Swift files to `ios/StackedWins/StackedWins/`
+      and they're picked up automatically)
+- [x] TestFlight release pipeline (`.github/workflows/ios-testflight.yml`) —
+      **unrun**: needs an Apple Developer account and four repo secrets first,
+      see `ios/TESTFLIGHT.md`
+- [x] App Store Connect `preflight` job: proves key + IDs + app record before
+      any archive; also a standalone dispatch choice. Script tested against the
+      real API with a throwaway key.
+- [ ] Register a bundle ID you own and set it in `ios/project.yml` — **do this
+      before the first tag**, or preflight fails on "no app record"
+- [ ] Add the four repository secrets (`ios/TESTFLIGHT.md` step 5)
+- [x] First shakedown run (`ios-v0.1.0`): preflight passed, automatic signing
+      passed, export passed, upload reached Apple and was rejected for a missing
+      app icon (90022/90713). Icon + privacy manifest added.
+- [ ] Second run: publish `ios-v0.1.1` from the Releases page
+- [ ] Replace the generated app icon with a designed one when there is one
+- [ ] Undo, keyboard shortcuts, first-run empty state — same open items as web
 - [ ] Configure API base URL
 - [ ] Test API connectivity
 - [ ] Build basic UI screens
@@ -141,7 +243,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ---
 
-## Current Status
+## Current Status (Layer 2)
 
 ✅ **Complete:**
 - Frontend UI (all pages)
@@ -175,7 +277,7 @@ The frontend UI is complete, but all backend endpoints need to be implemented.
 
 ---
 
-**Priority Order:**
+**Priority Order (Layer 2, on hold):**
 1. Database setup
 2. Authentication (blocks everything else)
 3. Assessment + Plan generation (needed for onboarding)

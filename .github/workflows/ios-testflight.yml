@@ -1,0 +1,301 @@
+name: iOS TestFlight
+
+# Ships the iOS app to TestFlight from CI, so releasing never needs a Mac.
+#
+# Signing uses an App Store Connect API key rather than checked-in
+# certificates: xcodebuild -allowProvisioningUpdates creates and downloads
+# whatever certificate and profile it needs on the runner, then throws the
+# runner away. Nothing to rotate by hand, no .p12 in the repo.
+#
+# Setup (one time) is documented in ios/TESTFLIGHT.md.
+
+on:
+  # The normal way to ship: Actions tab -> iOS TestFlight -> Run workflow ->
+  # pick "testflight". Deliberately manual — you rarely want every push
+  # burning a build number. The default is a compile check, so a stray click
+  # never ships anything.
+  workflow_dispatch:
+    inputs:
+      job:
+        description: What to run
+        type: choice
+        default: compile-check
+        options:
+          - compile-check
+          - preflight
+          - testflight
+  # Or tag a release: git tag ios-v0.1.0 && git push origin ios-v0.1.0
+  #
+  # Branch pushes that touch the app run the compile check only (see the job
+  # conditions below). This is also what makes a feature branch self-verifying
+  # without a Mac: workflow_dispatch needs the file on the default branch to
+  # be registered, but push triggers evaluate the workflow on the pushed ref.
+  push:
+    tags:
+      - 'ios-v*'
+    branches:
+      - '**'
+    paths:
+      - 'ios/**'
+      - '!ios/**/*.md'
+      - '.github/workflows/ios-testflight.yml'
+  # On PRs, only check that it still compiles. No secrets, no upload — so
+  # this also runs safely on PRs from forks.
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '!ios/**/*.md'
+      - '.github/workflows/ios-testflight.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two uploads race for the same build number.
+  group: ios-testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Guard so the iOS app can't silently stop compiling, and its unit tests
+  # can't silently stop passing. Simulator only, no signing, no credentials. Runs on PRs, and on demand from
+  # any branch — the way to verify Swift written without a Mac.
+  compile-check:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref_type == 'branch') ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'compile-check')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build and test on a simulator (no signing)
+        # `xcodebuild test` builds the app and the test bundle, then runs the
+        # unit tests. The simulator is resolved at runtime: runner images
+        # rotate their device sets, and a pinned name breaks silently.
+        run: |
+          set -euo pipefail
+          SIM=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+[^(]*' | head -1 | sed 's/[[:space:]]*$//')
+          if [ -z "$SIM" ]; then
+            echo "::error::No available iPhone simulator on this runner"
+            exit 1
+          fi
+          echo "Testing on: $SIM"
+          xcodebuild test \
+            -project ios/StackedWins.xcodeproj \
+            -scheme StackedWins \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=$SIM" \
+            CODE_SIGNING_ALLOWED=NO
+
+  # Proves the key, the IDs, and the App Store Connect app record all line up
+  # BEFORE an archive is attempted: a wrong Key ID fails here in seconds with a
+  # plain reason, not fifteen minutes later inside xcodebuild. Read-only. Also
+  # runnable on its own from the Actions tab to validate secrets without
+  # burning a build number.
+  preflight:
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ios-v')) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.job == 'preflight' || inputs.job == 'testflight'))
+    runs-on: macos-latest
+    timeout-minutes: 10
+    env:
+      ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets are present
+        # Fail here with a readable message rather than 20 minutes later
+        # inside a wall of xcodebuild output. Secrets come in through env,
+        # never interpolated into the script body.
+        env:
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
+        run: |
+          missing=()
+          [ -n "$ASC_KEY_ID" ] || missing+=(APPSTORE_CONNECT_API_KEY_ID)
+          [ -n "$ASC_ISSUER_ID" ] || missing+=(APPSTORE_CONNECT_ISSUER_ID)
+          [ -n "$APPLE_TEAM_ID" ] || missing+=(APPLE_TEAM_ID)
+          [ -n "$ASC_KEY_P8" ] || missing+=(APPSTORE_CONNECT_API_KEY_P8)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"
+            echo "See ios/TESTFLIGHT.md for how to create each one."
+            exit 1
+          fi
+
+      - name: Install App Store Connect API key
+        # The secret may be the .p8 file's contents pasted as-is (works from a
+        # phone: open the file, select all, copy, paste) or as one base64 line.
+        env:
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # Raw PEM. Strip CR from a Windows/phone paste; guarantee a final newline.
+            printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$KEY_PATH"
+          else
+            # Base64. Tolerate stray whitespace or line wraps from a clipboard.
+            printf '%s' "$ASC_KEY_P8" | tr -d ' \t\r\n' | openssl base64 -d -A > "$KEY_PATH"
+          fi
+          chmod 600 "$KEY_PATH"
+          # A real parse, not a grep: a truncated paste fails here, not at signing.
+          if ! openssl pkey -in "$KEY_PATH" -noout 2>/dev/null; then
+            echo "::error::The APPSTORE_CONNECT_API_KEY_P8 secret isn't a valid private key. Re-copy the whole .p8, first line to last — see ios/TESTFLIGHT.md."
+            exit 1
+          fi
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Preflight against App Store Connect
+        run: |
+          python3 -m pip install --quiet pyjwt cryptography
+          # The bundle id has one source of truth: ios/project.yml.
+          BUNDLE_ID=$(grep -E '^\s*PRODUCT_BUNDLE_IDENTIFIER:' ios/project.yml | head -1 | awk '{print $2}')
+          if [ -z "$BUNDLE_ID" ]; then
+            echo "::error::Could not read PRODUCT_BUNDLE_IDENTIFIER from ios/project.yml"
+            exit 1
+          fi
+          echo "Checking bundle id: $BUNDLE_ID"
+          BUNDLE_ID="$BUNDLE_ID" python3 ios/scripts/asc_preflight.py
+
+      - name: Remove the signing key from the runner
+        if: always()
+        run: rm -rf ~/.appstoreconnect/private_keys
+
+  testflight:
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ios-v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'testflight')
+    needs: preflight
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # A repository *variable* (not secret): Settings -> Secrets and variables
+      # -> Actions -> Variables. The URL your deployed backend lives at. Falls
+      # back to localhost, which testers can override in the app's Server screen.
+      API_BASE_URL: ${{ vars.API_BASE_URL || 'http://localhost:3001' }}
+      ARCHIVE_PATH: ${{ github.workspace }}/build/StackedWins.xcarchive
+      EXPORT_PATH: ${{ github.workspace }}/build/export
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Install App Store Connect API key
+        # Preflight already proved this key parses and authenticates; same
+        # install, so the archive signs with the identical file.
+        env:
+          ASC_KEY_P8: ${{ secrets.APPSTORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # Raw PEM. Strip CR from a Windows/phone paste; guarantee a final newline.
+            printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$KEY_PATH"
+          else
+            # Base64. Tolerate stray whitespace or line wraps from a clipboard.
+            printf '%s' "$ASC_KEY_P8" | tr -d ' \t\r\n' | openssl base64 -d -A > "$KEY_PATH"
+          fi
+          chmod 600 "$KEY_PATH"
+          # A real parse, not a grep: a truncated paste fails here, not at signing.
+          if ! openssl pkey -in "$KEY_PATH" -noout 2>/dev/null; then
+            echo "::error::The APPSTORE_CONNECT_API_KEY_P8 secret isn't a valid private key. Re-copy the whole .p8, first line to last — see ios/TESTFLIGHT.md."
+            exit 1
+          fi
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project ios/StackedWins.xcodeproj \
+            -scheme StackedWins \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            API_BASE_URL="${API_BASE_URL}"
+
+      - name: Write export options
+        # Generated rather than committed so the team ID lives only in secrets.
+        run: |
+          mkdir -p build
+          cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>destination</key>
+            <string>export</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Export .ipa
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        run: |
+          IPA=$(find "$EXPORT_PATH" -name '*.ipa' -maxdepth 1 | head -1)
+          if [ -z "$IPA" ]; then
+            echo "::error::No .ipa was produced by the export step."
+            exit 1
+          fi
+          echo "Uploading $(basename "$IPA") as build ${{ github.run_number }}"
+          xcrun altool --upload-app \
+            --file "$IPA" \
+            --type ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Keep the .ipa for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StackedWins-ipa-${{ github.run_number }}
+          path: ${{ env.EXPORT_PATH }}/*.ipa
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove the signing key from the runner
+        if: always()
+        run: rm -rf ~/.appstoreconnect/private_keys

@@ -31,7 +31,7 @@ export const RegisterPage = () => {
 
     try {
       await register(email, password);
-      navigate('/onboarding');
+      navigate('/now');
     } catch (err: any) {
       // Handle different error types
       console.log('Full error object:', err);

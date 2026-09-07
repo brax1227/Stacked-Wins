@@ -2,29 +2,66 @@
 
 ## Project Identity
 
-**App Name**: Stacked Wins  
-**Tagline**: Small wins build strong foundations  
-**Platforms**: iOS (native) + Web (responsive)  
-**Core Mission**: Help users become healthier, calmer, more disciplined, and more grounded — one small win at a time.
+**App Name**: Stacked Wins
+**Tagline**: Small wins build strong foundations
+**Platforms**: iOS (native) + Web (responsive)
+**Core Mission**: Get everything out of your head and hand you one thing at a
+time, so having a lot to do stops meaning doing nothing at all.
+
+---
+
+## The Problem
+
+> "I be having a lot to do but when I think about it junk just get overwhelming
+> so I don't do much of anything. I just need to physically see what I need to
+> do instead of thinking about it."
+
+The full problem statement lives in [PROBLEM.md](./PROBLEM.md) and is the
+source of truth for every decision in this document. The short version:
+
+The overwhelm is not caused by the work. It's caused by **holding** the work.
+A pile kept in your head has no edges — you can't count it, you can't see the
+end of it, and checking what's left costs as much as doing something. So the
+cheapest move your brain has is to stop looking, and nothing gets done.
+
+The fix the user already prescribed: **stop making them think to know.**
 
 ---
 
 ## Core Product Philosophy
 
-**Big goals → broken into tiny wins → repeated daily → reinforced identity → long-term growth.**
+**Dump it out → see one thing → clear it → that's a win → wins stack.**
 
-Users should experience real psychological momentum — not just checklists.
+Two jobs, and both have to work or neither does:
+
+1. **Get it out of the head.** Everything you're carrying, typed as fast as
+   you can, with essentially zero structure required. No due dates, no
+   estimates, no per-item categorizing. Structure is a tax charged at the
+   exact moment the user has the least to give.
+2. **Only ever show one thing.** A full list shown all at once recreates the
+   exact overwhelm we just removed — seeing 34 things is the visual version of
+   thinking about 34 things. So the app holds all of it and shows exactly one.
+
+The user never *has to* choose what to work on, because choosing is thinking,
+and thinking is the thing that breaks them.
+
+The one structure the app does ask for is the lane — **Need to** vs **Want
+to** — because it's one choice per dump session rather than one per item, it
+defaults, and it never gates anything. Ranking exists too, but only on a
+screen you have to go looking for. See "The two lanes" and "Ranking" in
+PROBLEM.md.
 
 ### This app is NOT:
+- A to-do list (their home screen is a list; the list is our failure state)
+- A project manager
+- A productivity system with a methodology to learn
 - A meditation content platform
-- A simple habit tracker
-- A to-do list
 - Therapy chat
 
 ### This app IS:
-- A personal growth operating system
-- Powered by AI coaching
-- Built around structure, clarity & daily reinforcement
+- A place to put the pile down
+- A surface that hands you the next thing without being asked
+- Built so that a bad day still ends with something cleared
 
 ---
 
@@ -32,19 +69,13 @@ Users should experience real psychological momentum — not just checklists.
 
 **Primary audience:**
 - Adults 18–40
-- Mentally aware but struggling with:
-  - Anxiety
-  - Self-doubt
-  - Lack of discipline
-  - Burnout
-  - Loss of purpose
+- Carrying a real load — work, school, family, life admin — with no system
+- Frozen by the size of it rather than unwilling to do it
 
 **Seeking:**
-- Direction
-- Systems
-- Accountability
-- Emotional stability
-- Self-mastery
+- Relief from holding it all
+- A next step that doesn't require a decision
+- Proof the pile is finite
 
 **Tone:** Grounded. Supportive. Respectful. No shame. No hype.
 
@@ -53,22 +84,90 @@ Users should experience real psychological momentum — not just checklists.
 ## Core Outcomes
 
 Users should feel:
-- "I am becoming someone I respect."
-- "Small wins count."
-- "I finally have a system."
-- "I'm not alone in this."
+- "It's out of my head."
+- "I know what to do right now."
+- "That pile has an end to it."
+- "I did something today."
+
+---
+
+## Core Loop — The Stack
+
+Three screens. That's the whole app.
+
+### 1. Dump (`/dump`) — Job 1
+
+One box, one lane toggle, one thing per line. A button that says **Put it
+down**.
+
+- **Need to / Want to** toggle above the box, defaulting to Need. One choice
+  for the whole dump, not one per line — dump your obligations, flip it, dump
+  the fun stuff
+- Autofocused textarea, nothing else on screen to configure
+- Forgiving parsing: blank lines, pasted bullets (`- `, `* `, `1.`, `[ ]`),
+  and duplicate lines are all handled silently
+- Live count as they type — *"12 things — out of your head"* — because the
+  point is the relief of externalizing, and the count is the receipt
+- No field asks when, how long, how important, or what kind
+
+### 2. Now (`/now`) — Job 2, and the actual product
+
+One card. Large. Centered. Two lane tabs above it, and nothing else.
+
+- **Need to / Want to** tabs. The lane you were last in is remembered.
+- **Deliberately no remaining count on this screen — including on the tabs.**
+  The size of the pile is exactly what freezes them; a badge reading "17" on
+  the Need tab is the pile leaking back in.
+- Four moves, and only four:
+
+| Move | Meaning | Effect |
+|---|---|---|
+| **Done** | Finished it | Clears. It's a win. Next card. |
+| **Not now** | Not this second | Back of the stack, no penalty. Next card. |
+| **Not today** | Real, but not today | Sleeps until tomorrow, keeps its place. Next card. |
+| **Too big** | This is why I froze | Split it into pieces; the first piece is dealt next. |
+
+- **"Too big" is the most important move.** A card that keeps getting pushed
+  is usually several tasks wearing a trench coat. After 3 pushes the app says
+  so first — *"This one keeps coming back around. It might be bigger than one
+  thing."* — instead of waiting for the user to work it out.
+- A quiet *"this belongs in Want to"* link moves a mis-filed card between
+  lanes. Kept as a link, not a fifth button — the four moves are the card's
+  whole vocabulary, and this is a correction, not a move.
+- Empty state is calm and finished: *"Nothing you have to do."* plus where any
+  sleeping cards went. If the other lane has cards, it offers them — clearing
+  your needs is the moment you've earned the want list. No pressure to add
+  more.
+- The site nav is hidden on this screen. A bar full of other places to go is
+  exactly the kind of choosing it exists to remove.
+
+### 3. Everything (`/stack`) — the escape hatch, and the only place ranking lives
+
+The full list for one lane, in deal order, with per-row **↑ / ↓ / do first**
+ranking, a **→ want / → need** lane move, and **let go**.
+
+- **Ranking is quarantined here on purpose.** Ranking is itself the thinking
+  that freezes you, so dump order is the default everywhere else and nothing
+  in the app blocks on a card being ranked. It's for the moment you already
+  know something is urgent — not a planning ritual.
+
+- It's the user's data, so hiding it would be a lie
+- But nothing navigates here on its own, and you never land here
+- Reachable only from a small, low-salience *"see everything"* link on `/now`
+- **This is the one screen where the count belongs**, because its entire
+  purpose is showing that the pile has edges
 
 ---
 
 ## Design Principles
 
-1. **Clarity over clutter**
-2. **Calm UI**
-3. **Masculine but soft energy**
-4. **No manipulation**
-5. **Identity-based growth**
-6. **Micro-wins first**
-7. **Respect user autonomy**
+1. **One thing on screen** — the list is the failure state
+2. **Never make them decide** — choosing is thinking, thinking is the freeze
+3. **Capture costs nothing** — the lane defaults and nothing else is required
+4. **Clarity over clutter**
+5. **Calm UI**
+6. **No manipulation** — no streak pressure, no punishment for a bad day
+7. **Respect user autonomy** — the full list is always reachable
 8. **Privacy-first**
 
 ---
@@ -82,6 +181,25 @@ Users should feel:
 - Honor
 - Identity
 - Self-Respect
+
+---
+
+## Layer 2 — The Growth Plan (deferred, not deleted)
+
+The sections that follow — the 30-day journey and the growth-plan wireframes
+— were designed for the previous direction: a deep onboarding assessment
+generating an AI growth plan across a 30-day identity arc. It is **no longer
+the front door.** (Feature definitions, tone, guardrails and metrics further
+down have been repointed at the stack and are current.)
+
+Someone frozen under a pile cannot answer "who do you want to become?" and
+shouldn't have to. **Answer the pile first.** The growth-plan layer becomes
+something offered to a user who is already unfrozen and asking "okay, but
+where is all this going?"
+
+Retained here because the tone guidance, notification rules, anti-overwhelm
+scaling, and guardrails still apply directly to the stack. The onboarding
+assessment, the 6–10 minute survey, and the 30-day journey are on hold.
 
 ---
 
@@ -465,15 +583,21 @@ Show multiple signals to avoid streak obsession:
 
 ## MVP Priority Features
 
-### MUST HAVE (Initial Design)
-1. Onboarding flow
+### MUST HAVE (current direction — the stack)
+1. Brain dump capture with the lane toggle (`/dump`)
+2. One-card screen with the four moves and the two lanes (`/now`)
+3. Split-a-card ("Too big")
+4. Full-list escape hatch with optional ranking (`/stack`)
+5. Cleared-card history
+
+### DEFERRED (Layer 2 — the growth plan)
+1. Onboarding assessment flow
 2. Goal → Plan system
 3. Daily task UI
 4. Progress dashboard
-5. Streaks & wins
-6. AI coach chat
-7. Notifications
-8. Journaling/reflection
+5. AI coach chat
+6. Notifications
+7. Journaling/reflection
 
 ### Future Add-Ons (NOT MVP)
 - Human coaching marketplace
@@ -492,7 +616,7 @@ Show multiple signals to avoid streak obsession:
 ### Core Stack
 - **Backend:** Node.js/Express or Python/FastAPI
 - **Database:** PostgreSQL (user data, plans, progress)
-- **AI/LLM:** OpenAI API or Anthropic Claude (for coaching)
+- **AI/LLM:** Anthropic Claude — the "Too big" split assist (and, for Layer 2, plan generation and coaching)
 - **Auth:** OAuth 2.0 / JWT
 - **Notifications:** Push (iOS) + Web Push (web)
 
@@ -523,7 +647,19 @@ Show multiple signals to avoid streak obsession:
 
 ## Success Metrics
 
-### User Health Metrics
+### Primary (the stack)
+
+Not DAU, and not session length — a *long* session on this app is a bug.
+
+1. **Time from open to knowing what to do next.** Target: under two seconds,
+   because the card is already there. This is the whole product.
+2. **Cards cleared per session.** Did the freeze break?
+3. **Return after a bad day.** Someone who drops off for three days, comes
+   back, and clears one card is the success case.
+4. **Dump size on second and third use.** If people keep emptying their head
+   into it, the surface is trusted.
+
+### Layer 2 Metrics (growth plan, deferred)
 - Consistency rate (primary)
 - Wins stacked (volume)
 - Mood trend (self-reported)
