@@ -4,9 +4,10 @@ name: CI
 # and web/ a Vitest suite — none of which ran on push. This wires up the
 # checks that are proven to pass locally.
 #
-# Note on iOS: ios/ holds 5 loose Swift files with no .xcodeproj and no test
-# target, so there is nothing for CI to build yet. Xcode Cloud is configured
-# in App Store Connect (not here) and needs a paid Apple Developer account.
+# Note on iOS: the Xcode project is generated from ios/project.yml by
+# XcodeGen rather than committed, so the ios job generates it before building.
+# Xcode Cloud (configured separately in App Store Connect) covers signing,
+# TestFlight and release; this job gives fast, free PR feedback alongside it.
 
 on:
   push:
@@ -101,6 +102,45 @@ jobs:
           name: web-dist
           path: web/dist
           retention-days: 7
+
+  ios:
+    name: iOS
+    # macOS runners cost 10x Linux minutes, so keep this job lean: it only
+    # builds and unit-tests on a simulator. No signing, no archiving --
+    # that is Xcode Cloud's job.
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        # StackedWins.xcodeproj is gitignored; project.yml is the source of
+        # truth. This also verifies the manifest stays valid.
+        run: xcodegen generate --spec project.yml
+
+      - name: Build and test
+        # The simulator is resolved at runtime rather than hardcoded: runner
+        # images rotate their installed Xcode and device sets regularly, and a
+        # pinned name like 'iPhone 16' silently breaks when the image updates.
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          SIMULATOR=$(xcrun simctl list devices available \
+            | grep -oE 'iPhone [0-9]+[^(]*' \
+            | head -1 \
+            | sed 's/[[:space:]]*$//')
+          echo "Testing on: ${SIMULATOR}"
+          xcodebuild test \
+            -project StackedWins.xcodeproj \
+            -scheme StackedWins \
+            -destination "platform=iOS Simulator,name=${SIMULATOR}" \
+            CODE_SIGNING_ALLOWED=NO
 
   integration:
     name: Backend integration (Postgres)

@@ -19,6 +19,13 @@ build/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 
+# Xcode project is generated from ios/project.yml by XcodeGen.
+# Committing a pbxproj means unreviewable diffs and constant merge conflicts;
+# the YAML manifest is the source of truth. Run `xcodegen generate` in ios/.
+ios/StackedWins.xcodeproj/
+DerivedData/
+*.xcuserstate
+
 # OS
 .DS_Store
 Thumbs.db

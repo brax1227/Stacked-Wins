@@ -2,91 +2,130 @@
 
 Native iOS application built with SwiftUI.
 
-> ###  Status: scaffold only — not yet a buildable app
->
-> This directory currently contains **5 loose Swift files** and **no Xcode
-> project**. There is no `.xcodeproj`, no `.xcworkspace`, and no `Package.swift`,
-> so `open StackedWins.xcodeproj` below will not work yet.
->
-> Consequences:
-> - **The app cannot be built or run**, on a machine or in CI.
-> - **There are no iOS tests** (no XCTest / Swift Testing target).
-> - **Xcode Cloud cannot be configured.** It requires an Xcode project or
->   workspace to derive a scheme from, plus a paid Apple Developer Program
->   membership. CI for `backend/` and `web/` therefore runs on GitHub Actions
->   (see `.github/workflows/ci.yml`).
->
-> To make this buildable, someone needs to create an Xcode project targeting
-> these sources and commit it, along with a unit-test target. The "Project
-> Structure" section below describes the **intended** layout — `Views/`,
-> `ViewModels/`, and `Resources/` do not exist yet.
-
 ## Requirements
 
 - Xcode 15.0+
 - iOS 17.0+
 - Swift 5.9+
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
 ## Setup
 
-1. **Open project:**
-   ```bash
-   open StackedWins.xcodeproj
-   ```
+The Xcode project is **generated from `project.yml`** and is not committed.
+A checked-in `.pbxproj` produces unreviewable diffs and conflicts on nearly
+every branch; a YAML manifest does not.
 
-2. **Configure signing:**
-   - Select your development team in Xcode
-   - Update bundle identifier if needed
+```bash
+cd ios
+xcodegen generate      # creates StackedWins.xcodeproj
+open StackedWins.xcodeproj
+```
 
-3. **Set API URL:**
-   - Edit `Config.swift` with your backend API URL
-   - Or use environment variables
+Re-run `xcodegen generate` after adding or removing source files, or after
+editing `project.yml`. New files in `StackedWins/` are picked up automatically
+by path, so there is no target membership to forget.
 
-4. **Run:**
-   - Select simulator or device
-   - Press Cmd+R to build and run
+## Running tests
+
+From Xcode press `Cmd+U`, or from the terminal:
+
+```bash
+cd ios
+xcodebuild test \
+  -project StackedWins.xcodeproj \
+  -scheme StackedWins \
+  -destination 'platform=iOS Simulator,name=iPhone 17'
+```
+
+The suite covers the JSON contract with the backend (`snake_case` keys, ISO
+8601 dates, enum values) and the runtime configuration wiring.
+
+## Configuration
+
+`Config.apiBaseURL` is read from `Info.plist`, populated per build
+configuration from `project.yml`:
+
+| Configuration | API base URL                              |
+| ------------- | ----------------------------------------- |
+| Debug         | `http://localhost:3001/api`               |
+| Release       | `https://api.stackedwins.example.com/api` |
+
+**Set the Release URL before shipping** — the current value is an obvious
+placeholder rather than a plausible-looking default that would fail silently.
+
+Change these in `project.yml` under the target's `configs`, not in source: a
+hardcoded URL is how the previous version ended up pointing at port 3000 while
+the backend listens on 3001.
 
 ## Project Structure
 
 ```
-StackedWins/
-├── Views/          # SwiftUI views
-│   ├── Onboarding/
-│   ├── DailyPlan/
-│   ├── Dashboard/
-│   └── CoachChat/
-├── ViewModels/     # View models (MVVM)
-├── Models/         # Data models
-├── Services/       # API service layer
-├── Utils/          # Utilities & extensions
-└── Resources/      # Assets, strings, etc.
+ios/
+├── project.yml                  # Source of truth for the Xcode project
+└── StackedWins/
+    ├── StackedWins/             # App target
+    │   ├── Models/              # Codable models mirroring the API
+    │   ├── Services/            # APIService (networking)
+    │   ├── Utils/               # Config
+    │   ├── Info.plist
+    │   └── StackedWinsApp.swift
+    └── StackedWinsTests/        # Unit test target
 ```
 
-## Key Features
+## Status
 
-- **Onboarding Flow** - Deep assessment survey
-- **Daily Plan** - Today's micro-wins with progress tracking
-- **Progress Dashboard** - Wins, streaks, metrics visualization
-- **AI Coach Chat** - Structured coaching conversations
-- **Offline Support** - Core Data for local caching
-- **Push Notifications** - Daily reminders and check-ins
+This is an early scaffold. It builds, runs, and its tests pass, but most of
+the app is not implemented yet:
 
-## Architecture
+- `APIService` throws `APIError.notImplemented` from **every** method.
+- `ContentView` is a static placeholder; there are no real screens.
+- `AssessmentRequest` and `Assessment` have no fields.
+- Core Data, push notifications, and offline support are not started.
 
-- **MVVM** pattern
-- **Combine** for reactive state
-- **URLSession** for networking
-- **Core Data** for local storage
-- **UserNotifications** for push notifications
+### Known issue: `Task` shadows Swift's concurrency type
 
-## Testing
+`Models/GrowthPlan.swift` declares `struct Task`, which shadows Swift's
+built-in `Task` throughout the module. Any attempt to write
 
-Run tests in Xcode:
-- Cmd+U to run all tests
-- Tests located in `StackedWinsTests/`
+```swift
+Task { await something() }
+```
 
-## Building for Production
+fails to compile with `no exact matches in call to initializer`, because it
+resolves to the model struct instead. `APIService` is already `async`, so this
+will be hit as soon as anyone spawns a task.
 
-1. Select "Any iOS Device" or specific device
-2. Product → Archive
-3. Distribute via App Store Connect
+Renaming the model (for example to `PlanTask` or `MicroWin`) is the fix, but
+it changes the app's domain vocabulary, so it is left as a deliberate decision
+rather than an incidental rename.
+
+## CI
+
+Two systems, on purpose:
+
+- **GitHub Actions** (`.github/workflows/ci.yml`) — builds and unit-tests on
+  every PR using a simulator, with no signing. Free and fast.
+- **Xcode Cloud** — signing, TestFlight, and App Store distribution, which
+  Actions cannot do without exporting signing certificates.
+
+### Xcode Cloud setup
+
+Requires a **paid Apple Developer Program membership**. Xcode Cloud is
+configured in Xcode and App Store Connect, not in this repository.
+
+1. Register the bundle ID `com.stackedwins.app` in App Store Connect
+   (Certificates, Identifiers & Profiles), then create the app record.
+2. In Xcode: `Product` -> `Xcode Cloud` -> `Create Workflow`.
+3. Select the **StackedWins** scheme (committed in `project.yml`, so it is
+   shared and visible to Xcode Cloud).
+4. Grant the Xcode Cloud GitHub app access to `brax1227/Stacked-Wins`.
+5. Configure the workflow:
+   - **Start Conditions:** Branch Changes on `main`, and Pull Request Changes.
+   - **Actions:** Build, then Test using the `StackedWins` scheme against an
+     iOS Simulator.
+   - **Post-Actions:** optionally TestFlight for internal testing.
+
+`ci_scripts/ci_post_clone.sh` runs automatically after Xcode Cloud clones the
+repo. It installs XcodeGen and generates the project, which is required
+because the `.xcodeproj` is not committed. Xcode Cloud discovers that script
+by convention from its path — do not move or rename it.

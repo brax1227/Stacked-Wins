@@ -1,0 +1,91 @@
+# This manifest is the source of truth for the Xcode project.
+# `StackedWins.xcodeproj` is generated from it and is NOT committed:
+# pbxproj files are unreviewable in diffs and conflict on every branch.
+# Regenerate with `xcodegen generate` (see ios/README.md).
+
+name: StackedWins
+
+options:
+  bundleIdPrefix: com.stackedwins
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  # Xcode Cloud and `xcodebuild` both need a scheme committed to the repo to
+  # know what to build; without this they have nothing to select.
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    # Treat warnings seriously in a codebase this young, while it is still
+    # cheap to keep clean.
+    GCC_TREAT_WARNINGS_AS_ERRORS: NO
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  StackedWins:
+    type: application
+    platform: iOS
+    sources:
+      - path: StackedWins/StackedWins
+    info:
+      path: StackedWins/StackedWins/Info.plist
+      properties:
+        CFBundleDisplayName: Stacked Wins
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # The API base URL is read from here rather than hardcoded, so that
+        # Debug can talk to localhost while Release points at production.
+        APIBaseURL: $(API_BASE_URL)
+        # Debug builds talk to a local HTTP backend; App Transport Security
+        # blocks cleartext by default. Scoped to localhost only, and only
+        # applied because the Debug config sets it (see configs below).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stackedwins.app
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Xcode Cloud injects its own signing; leaving this automatic means
+        # CI never trips over a missing local provisioning profile.
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          API_BASE_URL: http://localhost:3001/api
+        Release:
+          # Deliberately not a real host: shipping a placeholder that silently
+          # works is worse than one that is obviously unconfigured.
+          API_BASE_URL: https://api.stackedwins.example.com/api
+
+  StackedWinsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StackedWins/StackedWinsTests
+    dependencies:
+      - target: StackedWins
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stackedwins.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  StackedWins:
+    build:
+      targets:
+        StackedWins: all
+        StackedWinsTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - StackedWinsTests
+    run:
+      config: Debug
+    archive:
+      config: Release

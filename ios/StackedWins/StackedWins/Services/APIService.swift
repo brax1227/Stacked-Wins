@@ -2,8 +2,12 @@ import Foundation
 
 class APIService {
     static let shared = APIService()
-    
-    private let baseURL = "http://localhost:3000/api"
+
+    // Single source of truth: Config resolves this from the bundle, which is
+    // populated per build configuration. Previously this was a second
+    // hardcoded copy of the URL, and it pointed at the wrong port (3000; the
+    // backend listens on 3001).
+    private let baseURL = Config.apiBaseURL
     private let session = URLSession.shared
     
     private init() {}
