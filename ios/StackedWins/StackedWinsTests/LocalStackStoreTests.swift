@@ -348,3 +348,207 @@ final class LocalStackStoreTests: XCTestCase {
         XCTAssertEqual(DumpParser.normalizeTitle(long)?.count, DumpParser.maxTitleLength)
     }
 }
+
+/// Undo and the wins. Both are new surface on the phone store: undo has no
+/// server endpoint behind it, and the wins are what the app is named after.
+extension LocalStackStoreTests {
+
+    // MARK: - Undo
+
+    func testUndoPutsAClearedCardBack() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a\nb", into: .need)
+        let a = try await store.next(in: .need).item!
+        _ = try await store.done(a.id)
+
+        let label = try await store.undo()
+
+        XCTAssertEqual(label, "Cleared \u{201C}a\u{201D}")
+        let card = try await store.next(in: .need)
+        XCTAssertEqual(card.item?.title, "a")
+        XCTAssertEqual(card.done, 0, "the win is undone too, not just the card")
+        XCTAssertNil(card.item?.completedAt)
+    }
+
+    func testUndoRestoresPositionAndPushCount() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a\nb\nc", into: .need)
+        let a = try await store.next(in: .need).item!
+        _ = try await store.push(a.id)
+
+        let label = try await store.undo()
+
+        XCTAssertEqual(label, "Pushed back \u{201C}a\u{201D}")
+        let list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["a", "b", "c"])
+        XCTAssertEqual(list.items[0].pushCount, 0, "the push is uncounted, so the split hint doesn't creep up")
+    }
+
+    func testUndoWakesACardSentToTomorrow() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a", into: .need)
+        let a = try await store.next(in: .need).item!
+        _ = try await store.later(a.id)
+
+        let label = try await store.undo()
+
+        XCTAssertEqual(label, "\u{201C}a\u{201D} until tomorrow")
+        let card = try await store.next(in: .need)
+        XCTAssertEqual(card.item?.title, "a")
+        XCTAssertEqual(card.sleeping, 0)
+    }
+
+    func testUndoRebuildsACardFromItsPieces() async throws {
+        let store = makeStore()
+        _ = try await store.dump("clean the apartment", into: .need)
+        let big = try await store.next(in: .need).item!
+        _ = try await store.split(big.id, pieces: "dishes\nlaundry")
+
+        let label = try await store.undo()
+
+        XCTAssertEqual(label, "Broke up \u{201C}clean the apartment\u{201D}")
+        let list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["clean the apartment"], "the pieces go with it")
+    }
+
+    func testUndoTakesBackADumpAndOnlyTheLastOne() async throws {
+        let store = makeStore()
+        _ = try await store.dump("first", into: .need)
+        _ = try await store.dump("a\nb", into: .need)
+
+        let undoneDump = try await store.undo()
+        XCTAssertEqual(undoneDump, "Added 2 things")
+        var list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["first"])
+
+        // One level deep: the dump before it is not on the hook.
+        let nothingLeft = try await store.undo()
+        XCTAssertNil(nothingLeft)
+        list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["first"])
+    }
+
+    func testUndoNamesASingleAddedThing() async throws {
+        let store = makeStore()
+        _ = try await store.dump("call the bank", into: .need)
+        let undone = try await store.undo()
+        XCTAssertEqual(undone, "Added \u{201C}call the bank\u{201D}")
+    }
+
+    func testThereIsNothingToUndoOnAFreshStack() async throws {
+        let store = makeStore()
+        let nothing = try await store.undo()
+        XCTAssertNil(nothing)
+    }
+
+    func testUndoSurvivesTheMoveThatChangedNothing() async throws {
+        // Ranking the front card up is a no-op. Undo must still refer to it,
+        // not silently reach past it to the move before.
+        let store = makeStore()
+        _ = try await store.dump("a\nb", into: .need)
+        let items = try await store.everything(in: .need).items
+        _ = try await store.done(items[1].id)
+        _ = try await store.rank(items[0].id, .up)
+
+        let undoneRank = try await store.undo()
+        XCTAssertEqual(undoneRank, "Reordered \u{201C}a\u{201D}")
+        let card = try await store.next(in: .need)
+        XCTAssertEqual(card.done, 1, "the clear before it is untouched")
+    }
+
+    func testUndoIsWrittenToDiskNotJustHeldInMemory() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a", into: .need)
+        let a = try await store.next(in: .need).item!
+        _ = try await store.done(a.id)
+        _ = try await store.undo()
+
+        let reopened = makeStore()
+        let card = try await reopened.next(in: .need)
+        XCTAssertEqual(card.item?.title, "a")
+    }
+
+    func testUndoIsOfferedOnThePhone() async throws {
+        let caps = try await makeStore().capabilities()
+        XCTAssertTrue(caps.undo)
+    }
+
+    // MARK: - The wins
+
+    func testClearedReturnsTodaysWinsNewestFirst() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a\nb\nc", into: .need)
+        let items = try await store.everything(in: .need).items
+
+        _ = try await store.done(items[0].id)
+        clock = clock.addingTimeInterval(60)
+        _ = try await store.done(items[1].id)
+
+        let wins = try await store.cleared(since: calendar.startOfDay(for: clock))
+        XCTAssertEqual(wins.map(\.title), ["b", "a"])
+    }
+
+    func testClearedCountsBothLanesAndIgnoresEverythingElse() async throws {
+        let store = makeStore()
+        _ = try await store.dump("taxes\ndishes", into: .need)
+        _ = try await store.dump("guitar", into: .want)
+        let need = try await store.everything(in: .need).items
+        let want = try await store.everything(in: .want).items
+
+        _ = try await store.done(need[0].id)
+        _ = try await store.done(want[0].id)
+        _ = try await store.drop(need[1].id)
+
+        let wins = try await store.cleared(since: calendar.startOfDay(for: clock))
+        XCTAssertEqual(Set(wins.map(\.title)), ["taxes", "guitar"], "letting go is not a win")
+    }
+
+    func testYesterdaysWinsAreNotTodays() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a\nb", into: .need)
+        let items = try await store.everything(in: .need).items
+        _ = try await store.done(items[0].id)
+
+        // Tomorrow morning.
+        clock = calendar.date(byAdding: .hour, value: 18, to: clock)!
+        _ = try await store.done(items[1].id)
+
+        let today = try await store.cleared(since: calendar.startOfDay(for: clock))
+        XCTAssertEqual(today.map(\.title), ["b"])
+
+        let bothDays = try await store.cleared(since: calendar.date(byAdding: .day, value: -7, to: clock)!)
+        XCTAssertEqual(bothDays.map(\.title), ["b", "a"])
+    }
+
+    func testAWinUndoneIsNoLongerAWin() async throws {
+        let store = makeStore()
+        _ = try await store.dump("a", into: .need)
+        let a = try await store.next(in: .need).item!
+        _ = try await store.done(a.id)
+        _ = try await store.undo()
+
+        let wins = try await store.cleared(since: calendar.startOfDay(for: clock))
+        XCTAssertTrue(wins.isEmpty)
+    }
+
+    // MARK: - Timestamps
+
+    func testTimestampsParseBothWhatTheServerWritesAndWhatThePhoneWrites() {
+        // Prisma's toISOString has fractional seconds; the phone's doesn't.
+        // A stack that has been on both must read either.
+        XCTAssertNotNil(Timestamps.parse("2026-09-07T20:30:00.075Z"))
+        XCTAssertNotNil(Timestamps.parse("2026-09-07T20:30:00Z"))
+        XCTAssertEqual(Timestamps.parse("2026-09-07T20:30:00.000Z"),
+                       Timestamps.parse("2026-09-07T20:30:00Z"))
+        XCTAssertNil(Timestamps.parse(nil))
+        XCTAssertNil(Timestamps.parse(""))
+        XCTAssertNil(Timestamps.parse("last tuesday"))
+    }
+
+    func testCapabilitiesFromAServerThatHasNeverHeardOfUndo() throws {
+        let json = Data(#"{"splitAssist":true}"#.utf8)
+        let caps = try JSONDecoder().decode(StackCapabilities.self, from: json)
+        XCTAssertTrue(caps.splitAssist)
+        XCTAssertFalse(caps.undo, "a server that doesn't say is assumed not to")
+    }
+}

@@ -18,19 +18,23 @@ same backend. See [PROBLEM.md](../PROBLEM.md) for why it's shaped this way.
 
 ```
 StackedWins/StackedWins/
-├── StackedWinsApp.swift     # Entry; routes on signed-in state
-├── AppState.swift           # Session only — no app-wide cache of the pile, on purpose
+├── StackedWinsApp.swift     # Entry; opens straight to the stack, no sign-in gate
+├── AppState.swift           # Picks the backend; no app-wide cache of the pile, on purpose
 ├── Models/
 │   ├── Stack.swift          # StackItem, StackKind, NextCard … mirrors web/src/services/stackService.ts
 │   └── User.swift
 ├── Services/
+│   ├── StackBackend.swift       # The protocol every screen talks to
+│   ├── LocalStackStore.swift    # The default: the stack as one JSON file on this phone
+│   ├── RemoteStackBackend.swift # The same moves over HTTP, once signed in to a server
+│   ├── StackService.swift       # Front for whichever of the two is active
 │   ├── APIClient.swift      # URLSession + JWT + error mapping. Foundation-only, typechecks on Linux
-│   ├── AuthService.swift
-│   └── StackService.swift   # One function per endpoint
+│   └── AuthService.swift
 ├── Utils/
 │   ├── Config.swift         # Server URL resolution (Settings → Info.plist → localhost)
+│   ├── Haptics.swift        # The moves, felt rather than read
 │   └── Keychain.swift       # Token storage
-├── Views/
+├── Views/                   # NowView (the card), DumpView, EverythingView, WinsView …
 ├── Assets.xcassets/          # App icon: replace AppIcon.appiconset/Icon-1024.png (1024×1024, opaque)
 └── PrivacyInfo.xcprivacy    # Apple privacy manifest; declares the UserDefaults use
 ```
@@ -74,6 +78,10 @@ every PR and every branch push touching Swift, and locally with `Cmd+U`.
 - `ConfigTests` covers the server-URL resolution order and the normalisation
   of what a person types into the Server screen.
 - `APIClientTests` covers the pieces of the networking layer that need no server.
+- `LocalStackStoreTests` runs every move against the on-device stack with a
+  fixed clock in a fixed zone: dump order, the four moves, lanes, ranking,
+  undo, the wins, and the file surviving a relaunch. This is the store most
+  people are actually using, so it carries the most tests.
 - `LocalStackStoreTests` runs every move against the on-device store with a
   fixed clock: dump order, "not now" to the back, "not today" until midnight
   local time, split pieces first, ranking, letting go, and that the file

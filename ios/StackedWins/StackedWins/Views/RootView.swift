@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var showEverything = false
     @State private var showSettings = false
     @State private var showSignIn = false
+    @State private var showWins = false
     @State private var checkedFirstOpen = false
 
     var body: some View {
@@ -44,6 +45,12 @@ struct RootView: View {
                                     Label("Sign in to a server", systemImage: "network")
                                 }
                             }
+                            Divider()
+                            Button {
+                                showWins = true
+                            } label: {
+                                Label("Wins", systemImage: "checkmark.circle")
+                            }
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
@@ -78,6 +85,9 @@ struct RootView: View {
                 }
                 .sheet(isPresented: $showSignIn) {
                     LoginView()
+                }
+                .sheet(isPresented: $showWins) {
+                    WinsView()
                 }
                 .task { await openTheDumpOnFirstUse() }
         }

@@ -42,6 +42,36 @@ struct StackItem: Codable, Identifiable, Equatable {
     var updatedAt: String
 
     var isSleeping: Bool { snoozedUntil != nil }
+
+    var completedDate: Date? { Timestamps.parse(completedAt) }
+    var snoozedDate: Date? { Timestamps.parse(snoozedUntil) }
+}
+
+/// The wire format for dates: ISO 8601, kept as strings on the models so a
+/// formatting change server-side can never break decoding.
+///
+/// Parsing accepts fractional seconds or not, because both ends write these:
+/// the API through Prisma's toISOString ("...:18.075Z"), the phone without
+/// ("...:18Z"), and either one may end up reading the other's data.
+enum Timestamps {
+    private static let withFraction: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let plain: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func parse(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+        return withFraction.date(from: raw) ?? plain.date(from: raw)
+    }
+
+    static func string(from date: Date) -> String { plain.string(from: date) }
 }
 
 /// Askable cards per lane. Lets an empty lane point at the other one without
@@ -79,9 +109,28 @@ struct StackList: Codable {
 }
 
 /// GET /api/stack/capabilities — what this deployment can do, so the UI can
-/// hide an AI button rather than show one that fails on tap.
-struct StackCapabilities: Codable {
+/// hide a button rather than show one that fails on tap.
+struct StackCapabilities: Codable, Equatable {
+    /// Ask Claude for the smallest first steps. Needs a server with a key.
     let splitAssist: Bool
+    /// Put the last move back. The phone can; a server that doesn't say so
+    /// (every deployment older than this field) is assumed not to.
+    let undo: Bool
+
+    init(splitAssist: Bool, undo: Bool = false) {
+        self.splitAssist = splitAssist
+        self.undo = undo
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case splitAssist, undo
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        splitAssist = try container.decode(Bool.self, forKey: .splitAssist)
+        undo = try container.decodeIfPresent(Bool.self, forKey: .undo) ?? false
+    }
 }
 
 struct DumpResult: Codable {

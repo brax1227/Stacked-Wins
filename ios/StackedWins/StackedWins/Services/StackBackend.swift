@@ -30,4 +30,17 @@ protocol StackBackend {
     @discardableResult func move(_ id: String, to kind: StackKind) async throws -> StackItem
     @discardableResult func rank(_ id: String, _ move: RankMove) async throws -> StackItem
     @discardableResult func drop(_ id: String) async throws -> StackItem
+
+    // The wins, and taking a move back
+
+    /// Everything cleared since a moment, newest first. The app is called
+    /// Stacked Wins; this is the stack of wins.
+    func cleared(since: Date) async throws -> [StackItem]
+
+    /// Put the stack back the way it was before the last move, and say what
+    /// was put back. Returns nil when there is nothing to undo.
+    ///
+    /// One level deep and only for this launch: undo is for the tap you
+    /// regret two seconds later, not a history to browse.
+    @discardableResult func undo() async throws -> String?
 }
