@@ -78,4 +78,15 @@ enum StackService {
     static func drop(_ id: String) async throws -> StackItem {
         try await backend.drop(id)
     }
+
+    // MARK: The wins, and taking a move back
+
+    static func cleared(since: Date) async throws -> [StackItem] {
+        try await backend.cleared(since: since)
+    }
+
+    @discardableResult
+    static func undo() async throws -> String? {
+        try await backend.undo()
+    }
 }

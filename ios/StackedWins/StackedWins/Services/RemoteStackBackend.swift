@@ -86,4 +86,29 @@ struct RemoteStackBackend: StackBackend {
     func drop(_ id: String) async throws -> StackItem {
         try await client.request("POST", "stack/\(id)/drop")
     }
+
+    // MARK: The wins, and taking a move back
+
+    /// Only `items` is read: this asks for both lanes at once, and the
+    /// server answers `kind: "all"`, which is not one of the two lanes.
+    private struct ClearedList: Decodable {
+        let items: [StackItem]
+    }
+
+    func cleared(since: Date) async throws -> [StackItem] {
+        let list: ClearedList = try await client.request("GET", "stack", query: [
+            URLQueryItem(name: "kind", value: "all"),
+            URLQueryItem(name: "status", value: "done"),
+        ])
+        // The server sorts done cards by completedAt already; filtering here
+        // keeps the window the caller asked for without a new endpoint.
+        return list.items.filter { ($0.completedDate ?? .distantPast) >= since }
+    }
+
+    /// No server endpoint puts a move back yet, so `capabilities.undo` is
+    /// false for a server-backed stack and the UI never offers it. Reaching
+    /// here means a stale client; say so rather than pretending it worked.
+    func undo() async throws -> String? {
+        throw APIError.server(status: 501, message: "This server can't undo a move yet.")
+    }
 }

@@ -44,6 +44,11 @@ actor LocalStackStore: StackBackend {
     private var items: [StackItem] = []
     private var loaded = false
 
+    /// The stack as it was before the last move, so one tap can put it back.
+    /// In memory only: undo is for the tap you regret two seconds later, and
+    /// a relaunch is well past that.
+    private var undoState: (items: [StackItem], label: String)?
+
     /// - Parameters:
     ///   - fileURL: where the JSON lives. Defaults to Application Support.
     ///   - calendar: what "tomorrow" means. The phone's own, normally.
@@ -72,6 +77,7 @@ actor LocalStackStore: StackBackend {
         let titles = DumpParser.parse(text)
         guard !titles.isEmpty else { throw Failure.nothingToAdd }
 
+        remember(titles.count == 1 ? "Added \u{201C}\(titles[0])\u{201D}" : "Added \(titles.count) things")
         var position = backOfLane(kind)
         let stamp = timestamp()
         for title in titles {
@@ -99,9 +105,10 @@ actor LocalStackStore: StackBackend {
         )
     }
 
-    /// No AI on the phone. The Break-it-up sheet hides its button.
+    /// No AI on the phone -- the Break-it-up sheet hides that button. Undo
+    /// is free here, because the whole stack is one array away.
     func capabilities() async throws -> StackCapabilities {
-        StackCapabilities(splitAssist: false)
+        StackCapabilities(splitAssist: false, undo: true)
     }
 
     func everything(in kind: StackKind) async throws -> StackList {
@@ -117,7 +124,8 @@ actor LocalStackStore: StackBackend {
     }
 
     func done(_ id: String) async throws -> StackItem {
-        try update(id) { item in
+        try remember(id) { "Cleared \u{201C}\($0.title)\u{201D}" }
+        return try update(id) { item in
             item.status = "done"
             item.completedAt = self.timestamp()
         }
@@ -126,6 +134,7 @@ actor LocalStackStore: StackBackend {
     /// "Not now" — to the back of its own lane, no explanation, no penalty.
     func push(_ id: String) async throws -> StackItem {
         let index = try indexOf(id)
+        remember("Pushed back \u{201C}\(items[index].title)\u{201D}")
         let back = backOfLane(items[index].kind)
         return try update(id) { item in
             item.position = back
@@ -135,10 +144,10 @@ actor LocalStackStore: StackBackend {
 
     /// "Not today" — sleeps until tomorrow and keeps its place in line.
     func later(_ id: String) async throws -> StackItem {
-        try load()
+        try remember(id) { "\u{201C}\($0.title)\u{201D} until tomorrow" }
         let tomorrow = startOfTomorrow()
         return try update(id) { item in
-            item.snoozedUntil = Self.iso.string(from: tomorrow)
+            item.snoozedUntil = Timestamps.string(from: tomorrow)
         }
     }
 
@@ -151,6 +160,7 @@ actor LocalStackStore: StackBackend {
         guard !titles.isEmpty else { throw Failure.noPieces }
 
         let parent = items[index]
+        remember("Broke up \u{201C}\(parent.title)\u{201D}")
         let front = frontOfLane(parent.kind)
         let stamp = timestamp()
         items[index].status = "split"
@@ -173,7 +183,7 @@ actor LocalStackStore: StackBackend {
 
     /// Lands at the back of the lane it moves into.
     func move(_ id: String, to kind: StackKind) async throws -> StackItem {
-        _ = try indexOf(id)
+        try remember(id) { "Moved \u{201C}\($0.title)\u{201D} to \(kind.label)" }
         let back = backOfLane(kind)
         return try update(id) { item in
             item.kind = kind
@@ -186,6 +196,7 @@ actor LocalStackStore: StackBackend {
     func rank(_ id: String, _ move: RankMove) async throws -> StackItem {
         let index = try indexOf(id)
         let item = items[index]
+        remember("Reordered \u{201C}\(item.title)\u{201D}")
 
         if move == .top {
             let front = frontOfLane(item.kind)
@@ -215,7 +226,40 @@ actor LocalStackStore: StackBackend {
 
     /// Kept rather than deleted: "I let this go" is worth being able to see.
     func drop(_ id: String) async throws -> StackItem {
-        try update(id) { $0.status = "dropped" }
+        try remember(id) { "Let go of \u{201C}\($0.title)\u{201D}" }
+        return try update(id) { $0.status = "dropped" }
+    }
+
+    // MARK: The wins, and taking a move back
+
+    /// Everything cleared since a moment, newest first.
+    func cleared(since: Date) async throws -> [StackItem] {
+        try load()
+        return items
+            .filter { $0.status == "done" && ($0.completedDate ?? .distantPast) >= since }
+            .sorted { ($0.completedDate ?? .distantPast) > ($1.completedDate ?? .distantPast) }
+    }
+
+    func undo() async throws -> String? {
+        try load()
+        guard let state = undoState else { return nil }
+        items = state.items
+        undoState = nil
+        try save()
+        return state.label
+    }
+
+    /// Snapshot before changing anything. Taken even when the move turns out
+    /// to be a no-op -- undoing to an identical stack costs nothing, and a
+    /// missing snapshot would silently undo the move before it instead.
+    private func remember(_ label: String) {
+        undoState = (items, label)
+    }
+
+    /// The same, for moves that need the card's own title in the label.
+    private func remember(_ id: String, _ label: (StackItem) -> String) throws {
+        let index = try indexOf(id)
+        remember(label(items[index]))
     }
 
     // MARK: Extras the screens use
@@ -237,7 +281,7 @@ actor LocalStackStore: StackBackend {
     }
 
     private func isAsleep(_ item: StackItem, at now: Date) -> Bool {
-        guard let raw = item.snoozedUntil, let until = Self.iso.date(from: raw) else { return false }
+        guard let until = item.snoozedDate else { return false }
         return until > now
     }
 
@@ -293,15 +337,9 @@ actor LocalStackStore: StackBackend {
         return items[index]
     }
 
-    private func timestamp() -> String { Self.iso.string(from: now()) }
+    private func timestamp() -> String { Timestamps.string(from: now()) }
 
     private static func newID() -> String { UUID().uuidString.lowercased() }
-
-    private static let iso: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
 
     private func load() throws {
         guard !loaded else { return }

@@ -38,13 +38,19 @@
   # or, for a scratch dev database:
   cd backend && npx prisma db push
   ```
-- [ ] **Cleared history screen** — `GET /api/stack?status=done` has no UI yet. This
-      is where "wins stack" becomes visible, and it's the only place a growing
-      number is a good thing.
+- [x] **Cleared history screen** — shipped on iOS as `WinsView`: today's wins plus
+      the last two weeks, grouped by day, with counts. The only screen with a
+      number on it, and deliberately no streak — a streak makes a missed day a
+      punishment, and a punishment is a reason to stop opening the app. The web
+      app still has no equivalent.
 - [ ] **Keyboard shortcuts on `/now`** — the four moves on 1–4 or D/N/T/B. Every
       tap saved is friction removed from the one screen that matters.
-- [ ] **Undo the last move** — a mis-tapped "Done" currently needs a trip to the
-      database. One-tap moves need a one-tap undo.
+- [x] **Undo the last move** — shipped on iOS. The phone store snapshots the stack
+      before every move; the card screen offers "Undo" for six seconds after one.
+      One level deep and in memory only: it's for the tap you regret two seconds
+      later, not a history to browse. **Server-side undo doesn't exist yet**, so
+      `capabilities.undo` is false for a server-backed stack and the offer never
+      appears there. Web app unchanged.
 - [ ] **Empty-stack first run** — a brand-new user lands on `/now` with nothing.
       Should route to `/dump` on first visit rather than showing an empty lane.
 - [x] **iOS works with no server.** The first TestFlight install hit "failed to
@@ -74,9 +80,14 @@
       a touch-capable approach, not HTML5 drag-and-drop.
 - [ ] **Does "Not today" need a "not this week"?** Risk: every option added is a
       decision, and decisions are the failure mode. Probably no.
-- [ ] **Should `/now` ever show progress?** PROBLEM.md says no — the size of the
-      pile is what freezes them. Worth testing whether *cleared today* (a number
-      that only goes up) is different enough to be safe.
+- [~] **Should `/now` ever show progress?** Answered on iOS, one way: the card
+      screen carries one mark per card cleared today — no digits, because digits
+      read as a score. The number itself lives in Wins, one tap away. Still open
+      for the web app, and still worth watching whether the marks ever start
+      feeling like a quota.
+- [ ] **Does the card stack depth leak the pile?** The ghost cards behind the
+      card show 0, 1 or 2 and cap there, so they say "last one / a couple / more"
+      and never the count. Watch whether "more" alone is enough to freeze.
 - [ ] **Watch the lanes for scope creep.** Two buckets is the whole taxonomy. The
       moment someone asks for a third, or for tags, re-read PROBLEM.md first —
       every bucket added is a decision charged at capture time.
