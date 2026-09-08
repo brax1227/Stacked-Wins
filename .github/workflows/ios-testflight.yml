@@ -297,10 +297,21 @@ jobs:
             echo "::error::No .ipa was produced by the export step."
             exit 1
           fi
-          # Read the number out of the .ipa itself rather than trusting the
-          # build setting: this is the number TestFlight will show.
-          BUILD=$(unzip -p "$IPA" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw -o - - 2>/dev/null || echo "?")
-          VERSION=$(unzip -p "$IPA" 'Payload/*.app/Info.plist' | plutil -extract CFBundleShortVersionString raw -o - - 2>/dev/null || echo "?")
+          # Read the numbers out of the .ipa rather than trusting the build
+          # settings: this is what TestFlight will actually show.
+          PLIST=$(unzip -p "$IPA" 'Payload/*.app/Info.plist')
+          BUILD=$(printf '%s' "$PLIST" | plutil -extract CFBundleVersion raw -o - - 2>/dev/null || echo "?")
+          VERSION=$(printf '%s' "$PLIST" | plutil -extract CFBundleShortVersionString raw -o - - 2>/dev/null || echo "?")
+
+          # Stop here rather than let Apple reject the upload two minutes
+          # later with a message about duplicate versions. A mismatch means
+          # the version settings aren't reaching Info.plist -- which is
+          # exactly what happened when CFBundleVersion was left at XcodeGen's
+          # default and every build called itself 1.0 (1).
+          if [ "$BUILD" != "${{ github.run_number }}" ]; then
+            echo "::error::The .ipa says build $BUILD but this run is ${{ github.run_number }}. CFBundleVersion in ios/project.yml must be \$(CURRENT_PROJECT_VERSION); see ios/TESTFLIGHT.md."
+            exit 1
+          fi
           echo "::notice::Uploading $(basename "$IPA") — TestFlight will show it as $VERSION ($BUILD)"
           xcrun altool --upload-app \
             --file "$IPA" \
