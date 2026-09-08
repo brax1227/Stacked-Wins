@@ -298,10 +298,18 @@ jobs:
             exit 1
           fi
           # Read the numbers out of the .ipa rather than trusting the build
-          # settings: this is what TestFlight will actually show.
-          PLIST=$(unzip -p "$IPA" 'Payload/*.app/Info.plist')
-          BUILD=$(printf '%s' "$PLIST" | plutil -extract CFBundleVersion raw -o - - 2>/dev/null || echo "?")
-          VERSION=$(printf '%s' "$PLIST" | plutil -extract CFBundleShortVersionString raw -o - - 2>/dev/null || echo "?")
+          # settings: this is what TestFlight will actually show. Unpacked to
+          # a file first -- Info.plist in a built .ipa is a *binary* plist,
+          # and binary does not survive a round trip through a shell variable.
+          WORK=$(mktemp -d)
+          unzip -o -q "$IPA" 'Payload/*.app/Info.plist' -d "$WORK"
+          APP_PLIST=$(find "$WORK/Payload" -maxdepth 2 -name Info.plist | head -1)
+          if [ -z "$APP_PLIST" ]; then
+            echo "::error::No Info.plist inside $(basename "$IPA")."
+            exit 1
+          fi
+          BUILD=$(plutil -extract CFBundleVersion raw -o - "$APP_PLIST")
+          VERSION=$(plutil -extract CFBundleShortVersionString raw -o - "$APP_PLIST")
 
           # Stop here rather than let Apple reject the upload two minutes
           # later with a message about duplicate versions. A mismatch means
