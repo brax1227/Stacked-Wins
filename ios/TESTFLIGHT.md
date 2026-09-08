@@ -147,12 +147,25 @@ it's ready, and you add testers in App Store Connect → your app → TestFlight
 
 - **Build number** is the workflow run number, so every upload is unique.
   App Store Connect rejects a repeated build number, which is the single most
-  common cause of a failed upload. The upload step logs the exact
-  `version (build)` TestFlight will show, read out of the `.ipa` itself.
-  (The first two uploads showed as builds 1 and 2: Xcode's export was
-  quietly renumbering them. That's now switched off.)
-- **Version** shown to testers is `MARKETING_VERSION` in `ios/project.yml`.
-  Bump it by hand for a real release.
+  common cause of a failed upload. The upload step reads the numbers back out
+  of the built `.ipa` and refuses to upload if they don't match the run.
+- **Version** and build number reach the app **only** through the two
+  `CFBundle*` keys in `ios/project.yml`. XcodeGen writes Info.plist from the
+  keys listed there plus its own defaults, and its defaults are the literals
+  `1.0` and `1`. Without
+
+  ```yaml
+  CFBundleShortVersionString: $(MARKETING_VERSION)
+  CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+  ```
+
+  the settings go nowhere and every build calls itself `1.0 (1)`. That was
+  real: the first two uploads landed as builds 1 and 2 because Xcode's export
+  step was quietly renumbering them to the next free number, which hid the
+  underlying bug until `manageAppVersionAndBuildNumber` was turned off and the
+  third upload collided with build 1.
+- **What testers see** is `MARKETING_VERSION` in `ios/project.yml`. Bump it by
+  hand for a real release.
 
 ---
 
@@ -239,7 +252,8 @@ If preflight passes, anything that fails afterwards is signing or upload:
 | `No profiles for 'com.x.y' were found` | Bundle ID in `project.yml` doesn't match the registered App ID, or the API key lacks App Manager |
 | `Missing repository secrets: ...` | A secret name is misspelled — they're case-sensitive |
 | `isn't a valid private key` | The paste is truncated; copy the whole file, first line to last |
-| `The bundle version must be higher than...` | A build with that number already exists; re-run (the run number increments) |
+| `The bundle version must be higher than...` | A build with that number already exists. If the number in the log is small (1, 2), the version settings aren't reaching Info.plist — see **Version numbers**. Otherwise just re-run; the run number increments |
+| `The .ipa says build N but this run is M` | Same cause, caught before the upload: `CFBundleVersion` in `ios/project.yml` isn't `$(CURRENT_PROJECT_VERSION)` |
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
 

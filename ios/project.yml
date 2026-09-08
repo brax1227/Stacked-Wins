@@ -46,6 +46,14 @@ targets:
       path: StackedWins/Info.plist
       properties:
         CFBundleDisplayName: Stacked Wins
+        # These two have to be here. XcodeGen writes an Info.plist from
+        # exactly the keys listed in this block plus its own defaults, and its
+        # defaults are the literals "1.0" and "1" -- so without these lines the
+        # MARKETING_VERSION and CURRENT_PROJECT_VERSION settings below reach
+        # nothing, and every build calls itself 1.0 (1). $(...) substitutes the
+        # build setting of the same name at build time.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Empty dict = use the default generated launch screen. Without a
         # launch screen key at all, iOS runs the app letterboxed.
         UILaunchScreen: {}
