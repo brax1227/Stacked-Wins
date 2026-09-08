@@ -19,7 +19,7 @@ options:
 settings:
   base:
     # Shown to testers as the version. Bump by hand for a real release.
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     # Overridden by CI with the workflow run number, so every upload to
     # TestFlight has a unique build number (App Store Connect rejects repeats).
     CURRENT_PROJECT_VERSION: "1"
