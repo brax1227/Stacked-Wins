@@ -18,8 +18,13 @@ options:
 
 settings:
   base:
-    # Shown to testers as the version. Bump by hand for a real release.
-    MARKETING_VERSION: "0.2.0"
+    # Shown to testers as the version. Bump by hand for a real release, and
+    # only ever upward: TestFlight will not offer a build whose version is
+    # lower than the one already installed, however new its build number.
+    # Builds 1 and 2 went out as "1.0" (XcodeGen's default, before the
+    # CFBundle keys below were wired up), so everything after them has to
+    # clear 1.0.
+    MARKETING_VERSION: "1.1.0"
     # Overridden by CI with the workflow run number, so every upload to
     # TestFlight has a unique build number (App Store Connect rejects repeats).
     CURRENT_PROJECT_VERSION: "1"

@@ -68,6 +68,13 @@
 - [x] **First real compile of the iOS app** — `compile-check` on `macos-latest`
       (Xcode 26.6): 16 files, arm64 + x86_64, zero errors, zero warnings, first
       try. Runs automatically on every branch push touching `ios/` now.
+- [x] **iOS versioning is honest and guarded.** Three bugs stacked: XcodeGen's
+      default Info.plist hardcoded `1.0`/`1`, Xcode's export renumbered builds
+      to hide it, and the first fix set a version (`0.2.0`) *below* the `1.0`
+      already installed — which TestFlight silently refuses to offer. Now the
+      `CFBundle*` keys substitute the build settings, the upload verifies the
+      number in the built `.ipa`, and preflight fails a `MARKETING_VERSION`
+      that goes backwards.
 - [ ] **Set the `API_BASE_URL` repository variable** once the backend is deployed
       somewhere a phone can reach.
 - [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything

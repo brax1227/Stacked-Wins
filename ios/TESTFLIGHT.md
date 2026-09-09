@@ -257,6 +257,24 @@ If preflight passes, anything that fails afterwards is signing or upload:
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
 
+## "There's no Update button at all"
+
+**The version went backwards.** TestFlight offers a build only when its
+version is at least the one the tester already has. A higher *build number* is
+not enough — Apple accepts the upload, the build reads `VALID` and
+`IN_BETA_TESTING` and sits in the tester's group, and no Update button ever
+appears, because to that device a lower version is a downgrade.
+
+This happened here. Builds 1 and 2 went out as **1.0** (XcodeGen's default,
+before `CFBundleShortVersionString` was wired to `MARKETING_VERSION`). The
+next release set `MARKETING_VERSION` to **0.2.0** — correct-looking for an
+early project, and lower than what was already installed. It uploaded
+cleanly and was invisible on the phone for two days.
+
+`MARKETING_VERSION` in `ios/project.yml` may only ever go **up**. The
+preflight job now reads it and fails the run if it is lower than a version
+already on App Store Connect, naming the version to clear.
+
 ## "Why didn't the new build just show up on my phone?"
 
 Because TestFlight never installs anything on its own. Two different settings
@@ -287,7 +305,7 @@ build with its processing state, and which tester groups hold it.
 | `FAILED` / `INVALID` | Apple rejected it after upload; App Store Connect emails the reason |
 | `VALID ... in: no tester group` | Processed fine, but no group was handed the build. Groups created without "Enable automatic distribution" need every new build added by hand |
 | `internal: MISSING_EXPORT_COMPLIANCE` | The encryption question is unanswered, so testers can't install it. `ITSAppUsesNonExemptEncryption` in `ios/project.yml` normally answers it at build time |
-| `internal: IN_BETA_TESTING` and testers still don't see it | Nothing is wrong server-side — it's live and waiting for someone to tap **Update**. See the section above |
+| `internal: IN_BETA_TESTING` and testers still don't see it | Either it's live and waiting for a tap, or **its version is lower than the installed one** and TestFlight will never offer it. Check the version in the list, not just the build number |
 | `needs iOS N` above the tester's phone | TestFlight hides a build the device is too old for, which looks exactly like the build not being there |
 
 If the build is `VALID` and `IN_BETA_TESTING`, sits in a group that lists you
