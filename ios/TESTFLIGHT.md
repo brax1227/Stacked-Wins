@@ -257,6 +257,25 @@ If preflight passes, anything that fails afterwards is signing or upload:
 | `exportOptionsPlist error: method` | Only if the runner is somehow on Xcode < 15.3 — it currently ships 26.x, so unlikely; the fallback is `app-store` |
 | `Invalid Team ID` | Team ID is the 10-char code, not the team *name* |
 
+## "Why didn't the new build just show up on my phone?"
+
+Because TestFlight never installs anything on its own. Two different settings
+share the word *automatic*, and only one of them is about your device:
+
+| Setting | Where | What it actually does |
+|---|---|---|
+| **Automatic distribution** | The tester group, in App Store Connect | Every new build is *offered* to that group without anyone adding it by hand. Nothing is installed |
+| **Automatic Updates** | The TestFlight app on the phone, per app | TestFlight downloads and installs each new build for you. **Off by default** |
+
+With only the first one on — the normal setup — a new build sits in TestFlight
+until the tester opens it and taps **Update**. Testers who want builds to land
+by themselves turn on **Automatic Updates** on the app's page in TestFlight,
+under the Install/Update button.
+
+This is the most common "the build never arrived" report, and it isn't a
+failure of the pipeline: the `builds` run will show the build `VALID` and
+`IN_BETA_TESTING`, which means it's live and waiting to be tapped.
+
 ## "The upload said it succeeded but I don't see the build in TestFlight"
 
 Run the workflow with **builds**. It prints what Apple has: every recent
@@ -267,6 +286,9 @@ build with its processing state, and which tester groups hold it.
 | `PROCESSING` | Apple is still working on it; usually 10–20 minutes, sometimes an hour |
 | `FAILED` / `INVALID` | Apple rejected it after upload; App Store Connect emails the reason |
 | `VALID ... in: no tester group` | Processed fine, but no group was handed the build. Groups created without "Enable automatic distribution" need every new build added by hand |
+| `internal: MISSING_EXPORT_COMPLIANCE` | The encryption question is unanswered, so testers can't install it. `ITSAppUsesNonExemptEncryption` in `ios/project.yml` normally answers it at build time |
+| `internal: IN_BETA_TESTING` and testers still don't see it | Nothing is wrong server-side — it's live and waiting for someone to tap **Update**. See the section above |
+| `needs iOS N` above the tester's phone | TestFlight hides a build the device is too old for, which looks exactly like the build not being there |
 
 For that last case, run the workflow with **distribute**: it hands the newest
 processed build to every internal tester group that doesn't have it. Internal

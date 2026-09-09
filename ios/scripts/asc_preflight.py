@@ -126,13 +126,18 @@ def report_builds(token: str, app_id: str) -> None:
         fail(f"Could not list tester groups: HTTP {status}{apple_said(body)}")
     groups = body.get("data", [])
     print("")
-    print("Tester groups:")
+    print("Tester groups (being offered a build is not the same as installing")
+    print("it -- testers still tap Update unless they turned on Automatic Updates):")
     if not groups:
         print("  (none) — nobody can install anything until a group exists. TestFlight > Internal Testing > +")
     for group in groups:
         attrs = group.get("attributes", {})
         kind = "internal" if attrs.get("isInternalGroup") else "external"
-        auto = "gets every new build automatically" if attrs.get("hasAccessToAllBuilds") else "builds must be added by hand"
+        # "Automatic" here is about the *group* being handed the build, not
+        # about anyone's phone installing it. TestFlight never installs on its
+        # own unless the tester turns on Automatic Updates for the app.
+        auto = ("new builds offered to it automatically" if attrs.get("hasAccessToAllBuilds")
+                else "builds must be added to it by hand")
         print(f"  - {attrs.get('name')}  [{kind}, {auto}]")
 
     status, body = get(
