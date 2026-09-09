@@ -22,10 +22,11 @@ Optional, for "I uploaded a build and can't see it in TestFlight":
                           internal tester group that doesn't have it yet.
                           Internal groups only: the people already on the
                           team, never external testers or App Review.
-  ASC_DISTRIBUTE=renotify detach the newest build from every internal group
-                          and attach it again, so Apple re-notifies devices.
-                          For when the build is live and in the group and
-                          TestFlight still won't offer it.
+  ASC_DISTRIBUTE=renotify re-offer the newest build to the EXTERNAL groups,
+                          so Apple notifies devices again. Internal groups
+                          are managed by Apple and refuse this ("Cannot add
+                          internal group to a build"), so for an internal-only
+                          setup this reports that and does nothing.
 """
 import json
 import os
@@ -278,13 +279,27 @@ def renotify_latest(token: str, app_id: str) -> None:
     )
     if status != 200:
         fail(f"Could not list tester groups: HTTP {status}{apple_said(body)}")
+
+    external = [g for g in body.get("data", []) if not g.get("attributes", {}).get("isInternalGroup")]
     internal = [g for g in body.get("data", []) if g.get("attributes", {}).get("isInternalGroup")]
-    if not internal:
-        fail("There is no internal tester group to re-offer the build to.")
 
     print("")
-    payload = {"data": [{"type": "builds", "id": latest["id"]}]}
     for group in internal:
+        # Tried once, rejected by Apple with ENTITY_UNPROCESSABLE, "Cannot add
+        # internal group to a build." Apple owns which builds an internal
+        # group holds and the API will not take it back. Nothing to poke.
+        print(f"  '{group.get('attributes', {}).get('name')}' is internal — Apple manages its "
+              "builds and refuses to re-attach one, so there is nothing to re-offer.")
+
+    if not external:
+        print("")
+        print("No external group to re-offer to. If a tester still can't see a build that reads")
+        print("VALID and IN_BETA_TESTING, the hold-up is on the device, not here: restart the")
+        print("phone, and make sure the TestFlight app itself is up to date in the App Store.")
+        return
+
+    payload = {"data": [{"type": "builds", "id": latest["id"]}]}
+    for group in external:
         name = group.get("attributes", {}).get("name")
         path = f"/betaGroups/{group['id']}/relationships/builds"
 
