@@ -15,7 +15,12 @@ Env:
 Exit 0 and print the app record on success; exit 1 with a plain-language
 reason otherwise. Every failure mode maps to one thing the human can fix.
 
-Optional, for "I uploaded a build and can't see it in TestFlight":
+Optional:
+  ASC_CHECK_VERSION=x.y.z  fail if that MARKETING_VERSION is lower than one
+                           already on App Store Connect, which TestFlight
+                           would silently refuse to offer as an update.
+
+For "I uploaded a build and can't see it in TestFlight":
   ASC_REPORT=builds       also list the recent builds as Apple sees them
                           (processing state, which tester groups have them)
   ASC_DISTRIBUTE=latest   also hand the newest processed build to every
@@ -141,6 +146,64 @@ def apple_said(body: dict) -> str:
         return ""
     first = errors[0]
     return f" (Apple said: {first.get('code', '?')} — {first.get('detail', first.get('title', ''))})"
+
+
+def version_tuple(raw: str) -> tuple:
+    """"1.0" -> (1, 0). Anything unparseable sorts lowest, so a weird version
+    is reported rather than silently treated as newer."""
+    parts = []
+    for chunk in str(raw or "").split("."):
+        try:
+            parts.append(int(chunk))
+        except ValueError:
+            return (-1,)
+    return tuple(parts) or (-1,)
+
+
+def check_version_goes_up(token: str, app_id: str, version: str) -> None:
+    """TestFlight offers a build only when its version is at least the one the
+    tester already has. A build number that increases is not enough -- Apple
+    accepts the upload, the build reads VALID and IN_BETA_TESTING, and no
+    Update button ever appears. Caught here, before the build."""
+    status, body = get(
+        token,
+        f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=50"
+        "&fields[builds]=version,expired",
+    )
+    if status != 200:
+        print(f"::warning::Could not check the version against existing builds: HTTP {status}{apple_said(body)}")
+        return
+
+    # `version` on a build is the build number; the marketing version lives on
+    # the preReleaseVersion it belongs to.
+    status, body = get(
+        token,
+        f"/preReleaseVersions?filter[app]={app_id}&limit=50&fields[preReleaseVersions]=version",
+    )
+    if status != 200:
+        print(f"::warning::Could not read released versions: HTTP {status}{apple_said(body)}")
+        return
+
+    existing = [v.get("attributes", {}).get("version") for v in body.get("data", [])]
+    existing = [v for v in existing if v]
+    if not existing:
+        print(f"  Version {version} is the first for this app.")
+        return
+
+    highest = max(existing, key=version_tuple)
+    print(f"  Versions on App Store Connect: {', '.join(sorted(existing, key=version_tuple))}")
+    if version_tuple(version) < version_tuple(highest):
+        fail(
+            f"MARKETING_VERSION is {version}, which is LOWER than {highest}, already on "
+            "App Store Connect. Apple would accept the upload and TestFlight would never "
+            "offer it: a tester on the higher version gets no Update button, because a "
+            "lower version is a downgrade. Raise MARKETING_VERSION in ios/project.yml "
+            "above {highest}.".replace("{highest}", highest)
+        )
+    if version_tuple(version) == version_tuple(highest):
+        print(f"  Same version as {highest}; the build number distinguishes them. Fine.")
+    else:
+        print(f"  {version} is above {highest}. TestFlight will offer it.")
 
 
 def report_builds(token: str, app_id: str) -> None:
@@ -405,6 +468,10 @@ def main() -> None:
     print(f"  Bundle ID:  {attrs.get('bundleId')}")
     print(f"  ASC app id: {app.get('id')}")
     print(f"  SKU:        {attrs.get('sku')}")
+
+    wanted = os.environ.get("ASC_CHECK_VERSION", "").strip()
+    if wanted:
+        check_version_goes_up(token, app["id"], wanted)
 
     if os.environ.get("ASC_REPORT", "").strip() == "builds":
         report_builds(token, app["id"])

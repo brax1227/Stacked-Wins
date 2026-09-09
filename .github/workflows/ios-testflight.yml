@@ -181,8 +181,12 @@ jobs:
             echo "::error::Could not read PRODUCT_BUNDLE_IDENTIFIER from ios/project.yml"
             exit 1
           fi
-          echo "Checking bundle id: $BUNDLE_ID"
-          BUNDLE_ID="$BUNDLE_ID" python3 ios/scripts/asc_preflight.py
+          # The version testers will see. Checked against what App Store
+          # Connect already holds, because a version that goes DOWN uploads
+          # fine and is then never offered to anyone.
+          MARKETING_VERSION=$(grep -E '^\s*MARKETING_VERSION:' ios/project.yml | head -1 | awk '{print $2}' | tr -d '"')
+          echo "Checking bundle id: $BUNDLE_ID at version ${MARKETING_VERSION:-unknown}"
+          BUNDLE_ID="$BUNDLE_ID" ASC_CHECK_VERSION="$MARKETING_VERSION" python3 ios/scripts/asc_preflight.py
 
       - name: Remove the signing key from the runner
         if: always()
