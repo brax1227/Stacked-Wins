@@ -5,6 +5,7 @@ import SwiftUI
 /// go is exactly the kind of choosing this app exists to remove.
 struct RootView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var capture: CaptureRouter
     @State private var showDump = false
     @State private var showEverything = false
     @State private var showSettings = false
@@ -75,7 +76,11 @@ struct RootView: View {
                     }
                 }
                 .sheet(isPresented: $showDump) {
-                    DumpView()
+                    // Whatever a link or a Shortcut sent, or an empty box
+                    // when the + button opened it.
+                    DumpView(startingWith: capture.pending?.text ?? "",
+                             in: capture.pending?.kind ?? .need)
+                        .onDisappear { capture.consume() }
                 }
                 .sheet(isPresented: $showEverything) {
                     EverythingView()
@@ -90,6 +95,11 @@ struct RootView: View {
                     WinsView()
                 }
                 .task { await openTheDumpOnFirstUse() }
+                // stackedwins://add arrived, from a Shortcut, a Home Screen
+                // icon or a link. Open the box on top of whatever is showing.
+                .onChange(of: capture.pending) { _, link in
+                    if link != nil { showDump = true }
+                }
         }
     }
 

@@ -34,6 +34,7 @@ StackedWins/StackedWins/
 │   ├── Config.swift         # Server URL resolution (Settings → Info.plist → localhost)
 │   ├── Haptics.swift        # The moves, felt rather than read
 │   └── Keychain.swift       # Token storage
+├── Intents/                 # Siri / Spotlight / Shortcuts capture, no app launch
 ├── Views/                   # NowView (the card), DumpView, EverythingView, WinsView …
 ├── Assets.xcassets/          # App icon: replace AppIcon.appiconset/Icon-1024.png (1024×1024, opaque)
 └── PrivacyInfo.xcprivacy    # Apple privacy manifest; declares the UserDefaults use
@@ -60,6 +61,29 @@ default `http://localhost:3001` just works. On a real phone, tap the address
 at the bottom of the sign-in sheet and enter your Mac's Wi-Fi address, e.g.
 `http://192.168.1.20:3001` — plain http is allowed for local addresses only.
 Signing out returns to the phone's own stack, which is untouched.
+
+## Capture from outside the app
+
+Job 1 is getting it out of your head, and the tax is everything between the
+thought and the box. Two routes skip the app entirely:
+
+- **Siri, Spotlight and Shortcuts.** `Intents/StackIntents.swift` registers
+  "Put something down" and "What's next" through `AppShortcutsProvider`, so
+  they work the moment the app is installed with nothing to set up. Both run
+  with `openAppWhenRun = false` — the point is not to be pulled out of what
+  you were doing.
+- **`stackedwins://add?text=…&kind=…`** opens the dump box, optionally already
+  holding the text. Anything that can open a URL can drive it: a Home Screen
+  icon made in Shortcuts, a Back Tap, an automation, a link in a note. It only
+  ever *opens the box* — a link that wrote to your stack silently would be a
+  link anyone could hand you. Parsing and its edge cases: `Models/CaptureLink.swift`.
+
+Both go through `StackBackends.current()` rather than `AppState`, because an
+intent can run in a background launch where `AppState` never initialised, and
+a card captured by voice has to land in the same stack as one typed in.
+
+Not built yet: a **share extension** and a **widget**. Both run in their own
+process and so need the stack moved into an App Group container — see TODO.md.
 
 ## Shipping
 

@@ -20,11 +20,11 @@ final class AppState: ObservableObject {
     private var expiryObserver: AnyCancellable?
 
     init() {
-        // Swap in the Keychain-backed store before anything can make a request.
-        APIClient.shared.tokenStore = KeychainTokenStore()
-        // Trust a stored token optimistically; the first 401 signs us out.
-        usesServer = APIClient.shared.isAuthenticated
-        StackService.backend = usesServer ? RemoteStackBackend() : LocalStackStore.shared
+        // The same decision an intent makes when it runs without the UI, so a
+        // card captured by voice lands in the stack the screen is showing.
+        // Trusts a stored token optimistically; the first 401 signs us out.
+        usesServer = StackBackends.usesServer
+        StackService.backend = StackBackends.current()
 
         expiryObserver = NotificationCenter.default
             .publisher(for: .sessionExpired)

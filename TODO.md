@@ -77,6 +77,15 @@
       that goes backwards.
 - [ ] **Set the `API_BASE_URL` repository variable** once the backend is deployed
       somewhere a phone can reach.
+- [~] **Capture from outside the app.** Shipped on iOS: App Intents put "Put
+      something down" and "What's next" into Siri, Spotlight and Shortcuts with
+      no setup, and `stackedwins://add?text=…&kind=…` lets a Home Screen icon,
+      a Back Tap or a link open straight into the box. Still missing the two
+      that need an App Group container (the stack is a file in the app's own
+      sandbox, which a separate process can't reach): a **share extension**
+      for text you're looking at, and a **widget** showing the current card.
+      Doing those means moving stack.json into an App Group and migrating
+      existing data, plus the entitlement on the App ID.
 - [ ] **Capture from outside the app** — share sheet / widget / quick add. Anything
       that has to wait until you open the app is a thing that stays in your head.
 
