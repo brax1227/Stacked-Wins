@@ -140,6 +140,33 @@ def report_builds(token: str, app_id: str) -> None:
                 else "builds must be added to it by hand")
         print(f"  - {attrs.get('name')}  [{kind}, {auto}]")
 
+    # Who is actually in each internal group. A group with no testers, or one
+    # holding an Apple ID that isn't the one signed in to TestFlight on the
+    # phone, is indistinguishable from a build that never arrived.
+    for group in groups:
+        if not group.get("attributes", {}).get("isInternalGroup"):
+            continue
+        name = group.get("attributes", {}).get("name")
+        status, body = get(
+            token,
+            f"/betaGroups/{group['id']}/betaTesters"
+            "?fields[betaTesters]=email,firstName,lastName,inviteType,state&limit=50",
+        )
+        if status != 200:
+            print(f"    ! could not list testers in '{name}': HTTP {status}{apple_said(body)}")
+            continue
+        testers = body.get("data", [])
+        print(f"    testers in '{name}': {len(testers)}")
+        if not testers:
+            print("      (none) -- nobody can install from this group")
+        for tester in testers:
+            tattrs = tester.get("attributes", {})
+            who = tattrs.get("email") or f"{tattrs.get('firstName', '')} {tattrs.get('lastName', '')}".strip()
+            extra = ", ".join(
+                str(tattrs[key]) for key in ("inviteType", "state") if tattrs.get(key)
+            )
+            print(f"      - {who}" + (f"  [{extra}]" if extra else ""))
+
     status, body = get(
         token,
         # The top-level endpoint: /apps/{id}/builds refuses `sort`.
