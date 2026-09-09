@@ -290,7 +290,13 @@ build with its processing state, and which tester groups hold it.
 | `internal: IN_BETA_TESTING` and testers still don't see it | Nothing is wrong server-side — it's live and waiting for someone to tap **Update**. See the section above |
 | `needs iOS N` above the tester's phone | TestFlight hides a build the device is too old for, which looks exactly like the build not being there |
 
-For that last case, run the workflow with **distribute**: it hands the newest
+If the report says the build is `VALID` and `IN_BETA_TESTING`, sits in an
+internal group that lists you as a tester, and TestFlight *still* won't offer
+it, run the workflow with **renotify**. It detaches the newest build from the
+internal groups and attaches it again, which makes Apple treat it as newly
+available and notify the devices a second time.
+
+For a build that was never handed to a group, run the workflow with **distribute**: it hands the newest
 processed build to every internal tester group that doesn't have it. Internal
 groups only, never external testers or App Review. External testers also need
 "Sign-in required" answered under Test Information; the app itself no longer

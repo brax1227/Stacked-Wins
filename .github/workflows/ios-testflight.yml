@@ -30,6 +30,10 @@ on:
           # Same report, then hand the newest processed build to every
           # internal tester group that doesn't have it. Internal only.
           - distribute
+          # Detach the newest build from the internal groups and attach it
+          # again, so Apple re-notifies devices. For a build that is live and
+          # in the group that TestFlight still won't offer.
+          - renotify
   # Or tag a release: git tag ios-v0.1.0 && git push origin ios-v0.1.0
   #
   # Branch pushes that touch the app run the compile check only (see the job
@@ -110,7 +114,7 @@ jobs:
   preflight:
     if: >-
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ios-v')) ||
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["preflight","testflight","builds","distribute"]'), inputs.job))
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["preflight","testflight","builds","distribute","renotify"]'), inputs.job))
     runs-on: macos-latest
     timeout-minutes: 10
     env:
@@ -167,8 +171,8 @@ jobs:
 
       - name: Preflight against App Store Connect
         env:
-          ASC_REPORT: ${{ (inputs.job == 'builds' || inputs.job == 'distribute') && 'builds' || '' }}
-          ASC_DISTRIBUTE: ${{ inputs.job == 'distribute' && 'latest' || '' }}
+          ASC_REPORT: ${{ contains(fromJSON('["builds","distribute","renotify"]'), inputs.job) && 'builds' || '' }}
+          ASC_DISTRIBUTE: ${{ inputs.job == 'distribute' && 'latest' || inputs.job == 'renotify' && 'renotify' || '' }}
         run: |
           python3 -m pip install --quiet pyjwt cryptography
           # The bundle id has one source of truth: ios/project.yml.

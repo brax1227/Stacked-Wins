@@ -22,6 +22,10 @@ Optional, for "I uploaded a build and can't see it in TestFlight":
                           internal tester group that doesn't have it yet.
                           Internal groups only: the people already on the
                           team, never external testers or App Review.
+  ASC_DISTRIBUTE=renotify detach the newest build from every internal group
+                          and attach it again, so Apple re-notifies devices.
+                          For when the build is live and in the group and
+                          TestFlight still won't offer it.
 """
 import json
 import os
@@ -87,6 +91,30 @@ def post(token: str, path: str, payload: dict) -> tuple[int, dict]:
         f"{API}{path}",
         data=json.dumps(payload).encode(),
         method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.status, json.loads(resp.read() or b"{}")
+    except urllib.error.HTTPError as exc:
+        try:
+            body = json.loads(exc.read() or b"{}")
+        except json.JSONDecodeError:
+            body = {}
+        return exc.code, body
+    except urllib.error.URLError as exc:
+        fail(f"Could not reach App Store Connect: {exc.reason}")
+
+
+def delete(token: str, path: str, payload: dict) -> tuple[int, dict]:
+    req = urllib.request.Request(
+        f"{API}{path}",
+        data=json.dumps(payload).encode(),
+        method="DELETE",
         headers={
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
@@ -217,6 +245,61 @@ def report_builds(token: str, app_id: str) -> None:
             print("      ^ App Store Connect is waiting on the encryption question for this build")
 
 
+def renotify_latest(token: str, app_id: str) -> None:
+    """Detach the newest processed build from every internal group and attach
+    it again.
+
+    For the case where App Store Connect says a build is live and in the
+    group, and the tester's TestFlight still doesn't offer it. Re-attaching
+    makes Apple treat it as newly available and notify the device again.
+
+    The build is unavailable for the instant between the two calls, which is
+    academic when the symptom is that nobody can see it anyway.
+    """
+    status, body = get(
+        token,
+        f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10"
+        "&fields[builds]=version,processingState,expired",
+    )
+    if status != 200:
+        fail(f"Could not list builds: HTTP {status}{apple_said(body)}")
+    ready = [
+        b for b in body.get("data", [])
+        if b.get("attributes", {}).get("processingState") == "VALID"
+        and not b.get("attributes", {}).get("expired")
+    ]
+    if not ready:
+        fail("No processed build to re-offer.")
+    latest = ready[0]
+    version = latest["attributes"].get("version")
+
+    status, body = get(
+        token, f"/apps/{app_id}/betaGroups?fields[betaGroups]=name,isInternalGroup&limit=50"
+    )
+    if status != 200:
+        fail(f"Could not list tester groups: HTTP {status}{apple_said(body)}")
+    internal = [g for g in body.get("data", []) if g.get("attributes", {}).get("isInternalGroup")]
+    if not internal:
+        fail("There is no internal tester group to re-offer the build to.")
+
+    print("")
+    payload = {"data": [{"type": "builds", "id": latest["id"]}]}
+    for group in internal:
+        name = group.get("attributes", {}).get("name")
+        path = f"/betaGroups/{group['id']}/relationships/builds"
+
+        status, body = delete(token, path, payload)
+        if status not in (200, 204):
+            print(f"  ! could not detach build {version} from '{name}': HTTP {status}{apple_said(body)}")
+
+        status, body = post(token, path, payload)
+        if status in (200, 204):
+            print(f"::notice::Re-offered build {version} to '{name}'. TestFlight should show it within a few minutes.")
+        else:
+            fail(f"Could not re-attach build {version} to '{name}': HTTP {status}{apple_said(body)}. "
+                 "The build may now be detached from that group -- run the 'distribute' job to put it back.")
+
+
 def distribute_latest(token: str, app_id: str) -> None:
     """Give the newest processed build to every internal group missing it.
     Idempotent; internal groups only."""
@@ -312,6 +395,8 @@ def main() -> None:
         report_builds(token, app["id"])
     if os.environ.get("ASC_DISTRIBUTE", "").strip() == "latest":
         distribute_latest(token, app["id"])
+    if os.environ.get("ASC_DISTRIBUTE", "").strip() == "renotify":
+        renotify_latest(token, app["id"])
 
 
 if __name__ == "__main__":
