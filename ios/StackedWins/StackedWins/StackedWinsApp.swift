@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct StackedWinsApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var capture = CaptureRouter()
 
     var body: some Scene {
         WindowGroup {
@@ -10,6 +11,10 @@ struct StackedWinsApp: App {
             // thing you see is the one card (or the box to put things down).
             RootView()
                 .environmentObject(appState)
+                .environmentObject(capture)
+                // stackedwins://add — a Shortcut, a Home Screen icon, a link
+                // in a note. Anything that can open a URL can capture.
+                .onOpenURL { capture.handle($0) }
         }
     }
 }

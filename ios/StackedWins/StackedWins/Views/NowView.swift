@@ -13,6 +13,7 @@ import SwiftUI
 /// physical than a paragraph you tap a button under.
 struct NowView: View {
     @StateObject private var model = NowViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Where the thumb has dragged the card to right now.
     @State private var drag: CGSize = .zero
@@ -83,6 +84,12 @@ struct NowView: View {
         .safeAreaInset(edge: .bottom) { footer }
         .task { await model.load() }
         .refreshable { await model.load() }
+        // Coming back to the app re-deals. Two things need this: a card
+        // captured by Siri while the app sat in the background, and a "not
+        // today" card whose tomorrow arrived while the app was open.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.load() } }
+        }
         .sheet(isPresented: $model.showBreakItUp) {
             if let item = model.card?.item {
                 BreakItUpSheet(item: item, model: model)

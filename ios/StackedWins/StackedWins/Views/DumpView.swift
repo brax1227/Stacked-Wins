@@ -8,11 +8,18 @@ import SwiftUI
 /// can be ignored entirely. See PROBLEM.md.
 struct DumpView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @State private var kind: StackKind = .need
+    @State private var text: String
+    @State private var kind: StackKind
     @State private var isSaving = false
     @State private var errorMessage: String?
     @FocusState private var editorFocused: Bool
+
+    /// Opens empty from the + button, or already holding whatever a link,
+    /// a Shortcut or a share handed over.
+    init(startingWith text: String = "", in kind: StackKind = .need) {
+        _text = State(initialValue: text)
+        _kind = State(initialValue: kind)
+    }
 
     private var lineCount: Int {
         text.split(whereSeparator: \.isNewline)
@@ -96,6 +103,11 @@ struct DumpView: View {
                 }
             }
             .onAppear { editorFocused = true }
+            .onAppear {
+                // Arrived with something in it: leave room to add another
+                // line rather than making the user tap to the end first.
+                if !text.isEmpty && !text.hasSuffix("\n") { text += "\n" }
+            }
         }
     }
 
