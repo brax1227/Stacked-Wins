@@ -139,16 +139,23 @@ def report_builds(token: str, app_id: str) -> None:
         token,
         # The top-level endpoint: /apps/{id}/builds refuses `sort`.
         f"/builds?filter[app]={app_id}&sort=-uploadedDate&limit=10"
-        "&fields[builds]=version,processingState,uploadedDate,expired,betaGroups"
-        "&include=betaGroups&fields[betaGroups]=name",
+        "&fields[builds]=version,processingState,uploadedDate,expired,minOsVersion"
+        ",usesNonExemptEncryption,betaGroups,buildBetaDetail"
+        "&include=betaGroups,buildBetaDetail"
+        "&fields[betaGroups]=name"
+        "&fields[buildBetaDetails]=internalBuildState,externalBuildState",
     )
     if status != 200:
         fail(f"Could not list builds: HTTP {status}{apple_said(body)}")
-    names = {
-        inc["id"]: inc.get("attributes", {}).get("name", inc["id"])
-        for inc in body.get("included", [])
-        if inc.get("type") == "betaGroups"
-    }
+
+    names = {}
+    beta_states = {}
+    for inc in body.get("included", []):
+        if inc.get("type") == "betaGroups":
+            names[inc["id"]] = inc.get("attributes", {}).get("name", inc["id"])
+        elif inc.get("type") == "buildBetaDetails":
+            beta_states[inc["id"]] = inc.get("attributes", {})
+
     builds = body.get("data", [])
     print("")
     print("Builds, newest first:")
@@ -156,13 +163,26 @@ def report_builds(token: str, app_id: str) -> None:
         print("  (none) — no upload has reached App Store Connect for this app.")
     for build in builds:
         attrs = build.get("attributes", {})
-        linked = build.get("relationships", {}).get("betaGroups", {}).get("data", []) or []
+        rels = build.get("relationships", {})
+        linked = rels.get("betaGroups", {}).get("data", []) or []
         in_groups = ", ".join(names.get(g["id"], g["id"]) for g in linked) or "no tester group"
         expired = ", EXPIRED" if attrs.get("expired") else ""
+
+        detail_ref = (rels.get("buildBetaDetail") or {}).get("data") or {}
+        detail = beta_states.get(detail_ref.get("id"), {})
+        # This, not processingState, is what decides whether the build shows
+        # up in a tester's TestFlight app.
+        internal = detail.get("internalBuildState", "?")
+
         print(
             f"  - build {attrs.get('version')}: {attrs.get('processingState')}{expired}, "
+            f"internal: {internal}, needs iOS {attrs.get('minOsVersion')}, "
             f"uploaded {attrs.get('uploadedDate')}, in: {in_groups}"
         )
+        if attrs.get("usesNonExemptEncryption") is None:
+            print("      ^ export compliance unanswered — testers can't install this one")
+        if internal == "MISSING_EXPORT_COMPLIANCE":
+            print("      ^ App Store Connect is waiting on the encryption question for this build")
 
 
 def distribute_latest(token: str, app_id: str) -> None:
