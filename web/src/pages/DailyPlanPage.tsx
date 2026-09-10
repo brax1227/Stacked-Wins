@@ -6,7 +6,6 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressRing } from '../components/ProgressRing';
 import { Slider } from '../components/Slider';
-import type { Task } from '../types';
 import { format } from 'date-fns';
 
 export const DailyPlanPage = () => {

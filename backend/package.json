@@ -11,7 +11,7 @@
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
     "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/integration",
     "test:all": "npm run test:unit && npm run test:integration",
-    "lint": "eslint src/**/*.js",
+    "lint": "eslint src",
     "format": "prettier --write src/**/*.js"
   },
   "keywords": [

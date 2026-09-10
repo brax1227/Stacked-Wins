@@ -146,6 +146,25 @@ for every PR and every branch push touching `ios/` (Swift files — markdown
 edits don't trigger it). The whole app was written and first compiled this
 way, with no Mac involved: 16 files, zero errors, on Xcode 26.6.
 
+> ###  Status: scaffold only — not yet a buildable app
+>
+> This directory currently contains **5 loose Swift files** and **no Xcode
+> project**. There is no `.xcodeproj`, no `.xcworkspace`, and no `Package.swift`,
+> so `open StackedWins.xcodeproj` below will not work yet.
+>
+> Consequences:
+> - **The app cannot be built or run**, on a machine or in CI.
+> - **There are no iOS tests** (no XCTest / Swift Testing target).
+> - **Xcode Cloud cannot be configured.** It requires an Xcode project or
+>   workspace to derive a scheme from, plus a paid Apple Developer Program
+>   membership. CI for `backend/` and `web/` therefore runs on GitHub Actions
+>   (see `.github/workflows/ci.yml`).
+>
+> To make this buildable, someone needs to create an Xcode project targeting
+> these sources and commit it, along with a unit-test target. The "Project
+> Structure" section below describes the **intended** layout — `Views/`,
+> `ViewModels/`, and `Resources/` do not exist yet.
+
 ## Requirements
 
 - iOS 17.0+
