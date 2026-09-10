@@ -1,6 +1,12 @@
 import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
+#else
+// Nothing below this line is typechecked when the framework is missing, which
+// would make a green build meaningless -- the calls could be wrong and nobody
+// would know. Say so loudly instead. The absence of this warning in a build
+// log is the proof that the on-device path really was compiled.
+#warning("FoundationModels is not in this SDK: the on-device split assist is compiled out and every phone will report it unavailable.")
 #endif
 
 /// Breaking a card down, on the phone.
