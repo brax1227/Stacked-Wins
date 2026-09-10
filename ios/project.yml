@@ -24,7 +24,7 @@ settings:
     # Builds 1 and 2 went out as "1.0" (XcodeGen's default, before the
     # CFBundle keys below were wired up), so everything after them has to
     # clear 1.0.
-    MARKETING_VERSION: "1.2.0"
+    MARKETING_VERSION: "1.3.0"
     # Overridden by CI with the workflow run number, so every upload to
     # TestFlight has a unique build number (App Store Connect rejects repeats).
     CURRENT_PROJECT_VERSION: "1"
