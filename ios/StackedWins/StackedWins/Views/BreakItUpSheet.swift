@@ -3,8 +3,10 @@ import SwiftUI
 /// "Too big" -- the reason the pile froze them. Break the card into pieces
 /// and the first piece becomes the next card.
 ///
-/// The AI button only ever SUGGESTS: pieces land in the editable box and
-/// nothing is written until the user taps "Break it up" themselves.
+/// The suggest button only ever SUGGESTS: pieces land in the editable box and
+/// nothing is written until the user taps "Break it up" themselves. It runs
+/// on the phone's own model, so the thing you're avoiding never leaves the
+/// device -- and it only appears at all on phones that have one.
 struct BreakItUpSheet: View {
     let item: StackItem
     @ObservedObject var model: NowViewModel
@@ -61,6 +63,7 @@ struct BreakItUpSheet: View {
 
                 if suggestFailed {
                     Text("Couldn't come up with steps for that one. Break it up yourself — you know it better anyway.")
+                        .accessibilityIdentifier("suggest-failed")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

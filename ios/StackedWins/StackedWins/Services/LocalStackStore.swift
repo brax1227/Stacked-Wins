@@ -17,14 +17,12 @@ actor LocalStackStore: StackBackend {
         case notFound
         case nothingToAdd
         case noPieces
-        case assistNeedsServer
 
         var errorDescription: String? {
             switch self {
             case .notFound: return "Card not found"
             case .nothingToAdd: return "Nothing to add"
             case .noPieces: return "Break it into at least one piece"
-            case .assistNeedsServer: return "Suggestions need a server. Break it up yourself — you know it better anyway."
             }
         }
     }
@@ -105,10 +103,11 @@ actor LocalStackStore: StackBackend {
         )
     }
 
-    /// No AI on the phone -- the Break-it-up sheet hides that button. Undo
-    /// is free here, because the whole stack is one array away.
+    /// What this phone can do. The split assist depends on whether there's a
+    /// model on the device; undo is free here, because the whole stack is one
+    /// array away.
     func capabilities() async throws -> StackCapabilities {
-        StackCapabilities(splitAssist: false, undo: true)
+        StackCapabilities(splitAssist: SplitAssistants.current.isAvailable, undo: true)
     }
 
     func everything(in kind: StackKind) async throws -> StackList {
@@ -177,8 +176,26 @@ actor LocalStackStore: StackBackend {
         return SplitResult(pieces: titles.count)
     }
 
+    /// Ask whatever help this phone has for the smallest first steps.
+    ///
+    /// Suggests only: these go into an editable box and nothing reaches the
+    /// stack until the user confirms them through `split`. An app that
+    /// silently restructures your list is one you stop trusting, and trusting
+    /// the surface is the whole product.
     func suggestSplit(_ id: String) async throws -> SplitSuggestion {
-        throw Failure.assistNeedsServer
+        let index = try indexOf(id)
+        let title = items[index].title
+
+        let suggested = try await SplitAssistants.current.pieces(for: title)
+        // Same cleaning a typed dump gets, so a stray bullet or a blank line
+        // from the model costs nothing. A piece that just restates the card
+        // is not a step.
+        let pieces = DumpParser.parse(suggested.joined(separator: "\n"))
+            .filter { $0.lowercased() != title.lowercased() }
+            .prefix(6)
+
+        guard !pieces.isEmpty else { throw SplitAssistFailure.nothingUseful }
+        return SplitSuggestion(pieces: Array(pieces))
     }
 
     /// Lands at the back of the lane it moves into.

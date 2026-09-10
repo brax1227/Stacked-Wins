@@ -210,16 +210,20 @@ final class LocalStackStoreTests: XCTestCase {
         }
     }
 
-    func testNoAIOnThePhone() async throws {
+    func testAPhoneWithNoModelOffersNoSuggestions() async throws {
+        SplitAssistants.current = NoSplitAssistant()
         let store = makeStore()
+        _ = try await store.dump("clean", into: .need)
+        let card = try await store.next(in: .need).item!
+
         let caps = try await store.capabilities()
-        XCTAssertFalse(caps.splitAssist)
+        XCTAssertFalse(caps.splitAssist, "so the button never appears")
 
         do {
-            _ = try await store.suggestSplit("whatever")
+            _ = try await store.suggestSplit(card.id)
             XCTFail("expected an error")
         } catch {
-            XCTAssertEqual(error as? LocalStackStore.Failure, .assistNeedsServer)
+            XCTAssertEqual(error as? SplitAssistFailure, .unavailable)
             XCTAssertFalse(error.localizedDescription.isEmpty)
         }
     }
@@ -550,5 +554,127 @@ extension LocalStackStoreTests {
         let caps = try JSONDecoder().decode(StackCapabilities.self, from: json)
         XCTAssertTrue(caps.splitAssist)
         XCTAssertFalse(caps.undo, "a server that doesn't say is assumed not to")
+    }
+}
+
+/// A stand-in for the phone's model, so the cleaning around a suggestion can
+/// be tested without one. The real assistant's output is unpredictable; what
+/// has to be predictable is what the app does with it.
+private struct FakeAssistant: SplitAssistant {
+    var isAvailable = true
+    var answer: [String] = []
+    var failure: Error?
+
+    func pieces(for title: String) async throws -> [String] {
+        if let failure { throw failure }
+        return answer
+    }
+}
+
+extension LocalStackStoreTests {
+
+    private func withAssistant(_ assistant: SplitAssistant) {
+        SplitAssistants.current = assistant
+        addTeardownBlock { SplitAssistants.current = NoSplitAssistant() }
+    }
+
+    private func card(in store: LocalStackStore, titled title: String) async throws -> StackItem {
+        _ = try await store.dump(title, into: .need)
+        return try await store.next(in: .need).item!
+    }
+
+    func testAPhoneWithAModelOffersTheButton() async throws {
+        withAssistant(FakeAssistant(isAvailable: true))
+        let caps = try await makeStore().capabilities()
+        XCTAssertTrue(caps.splitAssist)
+    }
+
+    func testSuggestionsAreCleanedTheSameWayATypedDumpIs() async throws {
+        // Models number things and add bullets however much you ask them not to.
+        withAssistant(FakeAssistant(answer: [
+            "1. find the phone number",
+            "- write down what to ask",
+            "",
+            "   make the call   ",
+        ]))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "call the bank")
+
+        let suggestion = try await store.suggestSplit(item.id)
+
+        XCTAssertEqual(suggestion.pieces,
+                       ["find the phone number", "write down what to ask", "make the call"])
+    }
+
+    func testAPieceThatJustRestatesTheCardIsDropped() async throws {
+        // "clean" -> "Clean" is not a step, it's the same wall.
+        withAssistant(FakeAssistant(answer: ["Clean", "dishes", "one load of laundry"]))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "clean")
+
+        let suggestion = try await store.suggestSplit(item.id)
+
+        XCTAssertEqual(suggestion.pieces, ["dishes", "one load of laundry"])
+    }
+
+    func testTooManyPiecesAreCappedSoTheFixIsntItsOwnPile() async throws {
+        withAssistant(FakeAssistant(answer: (1...12).map { "step \($0)" }))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "move house")
+
+        let suggestion = try await store.suggestSplit(item.id)
+
+        XCTAssertEqual(suggestion.pieces.count, 6)
+        XCTAssertEqual(suggestion.pieces.first, "step 1")
+    }
+
+    func testAnAnswerWithNothingUsableInItIsAnError() async throws {
+        withAssistant(FakeAssistant(answer: ["", "  ", "- "]))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "taxes")
+
+        do {
+            _ = try await store.suggestSplit(item.id)
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SplitAssistFailure, .nothingUseful)
+        }
+    }
+
+    func testAModelThatFailsSurfacesRatherThanPretending() async throws {
+        withAssistant(FakeAssistant(failure: SplitAssistFailure.unavailable))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "taxes")
+
+        do {
+            _ = try await store.suggestSplit(item.id)
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SplitAssistFailure, .unavailable)
+        }
+    }
+
+    func testSuggestingWritesNothingToTheStack() async throws {
+        // The whole promise: it suggests, you confirm. Nothing lands until
+        // the user taps "Break it up".
+        withAssistant(FakeAssistant(answer: ["dishes", "laundry"]))
+        let store = makeStore()
+        let item = try await card(in: store, titled: "clean")
+
+        _ = try await store.suggestSplit(item.id)
+
+        let list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["clean"], "still exactly the card we started with")
+        XCTAssertEqual(list.items[0].status, "open")
+    }
+
+    func testSuggestingForACardThatIsNotThereIsNotFound() async throws {
+        withAssistant(FakeAssistant(answer: ["x"]))
+        do {
+            _ = try await makeStore().suggestSplit("nope")
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? LocalStackStore.Failure, .notFound)
+        }
     }
 }

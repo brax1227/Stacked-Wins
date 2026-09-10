@@ -62,6 +62,27 @@ at the bottom of the sign-in sheet and enter your Mac's Wi-Fi address, e.g.
 `http://192.168.1.20:3001` — plain http is allowed for local addresses only.
 Signing out returns to the phone's own stack, which is untouched.
 
+## Breaking a card down
+
+"Too big" exists because a vague card is the one that freezes you — "clean"
+isn't a task, it's a mood. The button that offers first steps runs on the
+phone's own model (`Services/OnDeviceSplitAssist.swift`, Apple's
+FoundationModels): no key, no server, no cost, works offline, and the thing
+you're avoiding never leaves the device.
+
+It isn't on every phone — older hardware, Apple Intelligence off, a model
+still downloading. All of those report unavailable, `capabilities.splitAssist`
+goes false and the button never appears. The app has always been fully usable
+without it.
+
+Everything else talks to `SplitAssistant`, so exactly one file imports
+FoundationModels and the rest of the layer stays Foundation-only and testable
+on Linux. `SplitAssistants.current` is what the store asks; tests swap in a
+fake, because the model's output is unpredictable and what has to be
+predictable is what the app *does* with it — strip numbering, drop a piece
+that just restates the card, cap the count so the fix isn't its own pile, and
+write nothing until the user confirms.
+
 ## Capture from outside the app
 
 Job 1 is getting it out of your head, and the tax is everything between the
