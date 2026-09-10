@@ -109,6 +109,13 @@
       every bucket added is a decision charged at capture time.
 - [ ] **Recurring things.** Real, but recurrence is structure, and structure is
       the tax we refuse to charge. Needs a design that costs the user nothing.
+- [x] **The split assist runs on the phone.** Apple's on-device model via
+      FoundationModels, behind `SplitAssistant` so nothing but one file imports
+      it. No key, no server, no cost, works on a plane, and the card never
+      leaves the device. Unavailable on older hardware or with Apple
+      Intelligence off, which reports as `capabilities.splitAssist == false` and
+      hides the button — the same path a phone has always taken. The server
+      assist still exists for a server-backed stack.
 - [ ] **Tune the split assist.** It runs at `output_config.effort: 'low'` — a
       deliberate per-route choice for a short, tightly-specified extraction that
       may be hit many times a sitting. Raise it if suggestions come back shallow.
