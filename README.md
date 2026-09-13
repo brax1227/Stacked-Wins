@@ -1,5 +1,7 @@
 # Stacked Wins
 
+[![CI](https://github.com/brax1227/Stacked-Wins/actions/workflows/ci.yml/badge.svg)](https://github.com/brax1227/Stacked-Wins/actions/workflows/ci.yml)
+
 > Small wins build strong foundations
 
 **The problem:** having a lot to do, holding all of it in your head, and

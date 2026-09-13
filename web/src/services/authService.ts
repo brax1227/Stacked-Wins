@@ -1,4 +1,5 @@
 import api from './api';
+import type { User } from '../types';
 
 export interface RegisterRequest {
   email: string;
@@ -10,12 +11,13 @@ export interface LoginRequest {
   password: string;
 }
 
+// Why: the backend's /auth/register and /auth/login both return the full user
+// record (id, email, createdAt, updatedAt). Reusing the shared `User` type
+// instead of re-declaring an inline subset keeps this in lockstep with the API
+// and stops the auth store from receiving a structurally incomplete user.
 export interface AuthResponse {
   token: string;
-  user: {
-    id: string;
-    email: string;
-  };
+  user: User;
 }
 
 export const authService = {
