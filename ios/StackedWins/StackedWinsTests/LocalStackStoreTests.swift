@@ -678,3 +678,105 @@ extension LocalStackStoreTests {
         }
     }
 }
+
+/// The manual, no-model path from an overwhelming card to one small step —
+/// and the promise that nothing moves until the user says so.
+extension LocalStackStoreTests {
+
+    func testConfirmingATimeboxReplacesTheCardAndAddsNoWork() async throws {
+        // The invariant that matters most: breaking something down must not
+        // leave you holding more than you started with.
+        let store = makeStore()
+        _ = try await store.dump("clean the apartment", into: .need)
+        let big = try await store.next(in: .need).item!
+        let before = try await store.everything(in: .need).items.count
+
+        let step = try XCTUnwrap(ManualFirstStep.timebox(big.title))
+        let result = try await store.split(big.id, pieces: step)
+
+        XCTAssertEqual(result.pieces, 1)
+        let after = try await store.everything(in: .need).items
+        XCTAssertEqual(after.count, before, "one card in, one card out")
+        XCTAssertEqual(after.map(\.title), ["spend 5 minutes on clean the apartment"])
+        XCTAssertEqual(after[0].parentId, big.id, "the new card remembers what it came from")
+    }
+
+    func testTheTimeboxedStepIsWhatGetsDealtNext() async throws {
+        let store = makeStore()
+        _ = try await store.dump("clean the apartment\nemail", into: .need)
+        let big = try await store.next(in: .need).item!
+
+        _ = try await store.split(big.id, pieces: try XCTUnwrap(ManualFirstStep.timebox(big.title)))
+
+        let card = try await store.next(in: .need)
+        XCTAssertEqual(card.item?.title, "spend 5 minutes on clean the apartment")
+    }
+
+    func testOpenersFinishedByTheUserBecomeTheirOwnCards() async throws {
+        let store = makeStore()
+        _ = try await store.dump("call the bank", into: .need)
+        let big = try await store.next(in: .need).item!
+
+        // What the sheet builds: stems tapped, blanks filled in by the user.
+        var box = ""
+        for id in ["find", "call"] {
+            let opener = try XCTUnwrap(ManualFirstStep.openers.first { $0.id == id })
+            box = ManualFirstStep.insert(opener, into: box)
+            box += (id == "find" ? "number on the card" : "them")
+        }
+
+        let result = try await store.split(big.id, pieces: box)
+
+        XCTAssertEqual(result.pieces, 2)
+        let list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["find the number on the card", "call them"])
+    }
+
+    func testAnUnfinishedStemStillOnlyLandsIfTheUserConfirmsIt() async throws {
+        // Tapping an opener and confirming without filling the blank is the
+        // user's call, not a bug -- but it must be the *user's* call.
+        let store = makeStore()
+        _ = try await store.dump("taxes", into: .need)
+        let big = try await store.next(in: .need).item!
+        let opener = try XCTUnwrap(ManualFirstStep.openers.first { $0.id == "open" })
+
+        // No split call: the stem exists only in the sheet.
+        let untouched = try await store.everything(in: .need)
+        XCTAssertEqual(untouched.items.map(\.title), ["taxes"])
+        XCTAssertEqual(untouched.items[0].status, "open")
+
+        // Now they confirm it.
+        _ = try await store.split(big.id, pieces: ManualFirstStep.insert(opener, into: ""))
+        let after = try await store.everything(in: .need)
+        XCTAssertEqual(after.items.map(\.title), ["open"])
+    }
+
+    func testBackingOutOfBreakingItUpChangesAbsolutelyNothing() async throws {
+        // "Never mind" is the common case: they opened the sheet, looked at
+        // the card, and closed it. The stack must be byte-identical.
+        let store = makeStore()
+        _ = try await store.dump("clean\nemail", into: .need)
+        let before = try await store.everything(in: .need).items
+
+        // Everything the sheet can do short of confirming.
+        let card = try await store.next(in: .need).item!
+        _ = ManualFirstStep.timebox(card.title)
+        _ = ManualFirstStep.insert(ManualFirstStep.openers[0], into: "")
+
+        let after = try await store.everything(in: .need).items
+        XCTAssertEqual(before, after, "nothing in the sheet touches the stack on its own")
+    }
+
+    func testBreakingDownCanBeUndoneLikeAnyOtherMove() async throws {
+        let store = makeStore()
+        _ = try await store.dump("clean", into: .need)
+        let big = try await store.next(in: .need).item!
+        _ = try await store.split(big.id, pieces: try XCTUnwrap(ManualFirstStep.timebox(big.title)))
+
+        let undone = try await store.undo()
+
+        XCTAssertEqual(undone, "Broke up \u{201C}clean\u{201D}")
+        let list = try await store.everything(in: .need)
+        XCTAssertEqual(list.items.map(\.title), ["clean"], "the original card comes back intact")
+    }
+}

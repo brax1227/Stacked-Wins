@@ -120,6 +120,7 @@ struct DumpView: View {
             defer { isSaving = false }
             do {
                 _ = try await StackService.dump(payload, into: lane)
+                await ActivationLog.shared.recordCapture()
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

@@ -88,7 +88,12 @@ struct NowView: View {
         // captured by Siri while the app sat in the background, and a "not
         // today" card whose tomorrow arrived while the app was open.
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.load() } }
+            if phase == .active {
+                Task {
+                    await ActivationLog.shared.recordOpen()
+                    await model.load()
+                }
+            }
         }
         .sheet(isPresented: $model.showBreakItUp) {
             if let item = model.card?.item {
@@ -607,6 +612,13 @@ final class NowViewModel: ObservableObject {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     card = next
                 }
+                // Activation: a card was cleared, or broken down and
+                // confirmed. Counts and dates only, on this phone -- see
+                // ActivationLog and TRIAL.md.
+                if move == "done" || move == "split" {
+                    await ActivationLog.shared.recordAction()
+                }
+
                 if move == "done" {
                     Haptics.win()
                     // ...and that was the last one. A separate beat, late
