@@ -33,19 +33,48 @@ actor ActivationLog {
     }
 
     /// What one day looked like. Counts only.
+    ///
+    /// `brokenDown` and `started` are separate on purpose and must never be
+    /// summed into a single "actions" number. Breaking a task into pieces is
+    /// the user editing a plan; it is intent, and intent is not evidence that
+    /// anything happened in the world. Conflating them would let the trial
+    /// report planning as doing, which is the exact self-deception this
+    /// product is supposed to interrupt.
     struct DayCounts: Codable, Equatable {
         var opens = 0
         /// Things put down — a dump, a Siri capture, a link.
         var captures = 0
-        /// Cards actually moved on: cleared, or broken down and confirmed.
-        /// This is the one that means "started something".
-        var actions = 0
+        /// A card was broken into pieces and the user confirmed it.
+        /// **Intent.** A first step was selected, not taken.
+        var brokenDown = 0
+        /// A card was marked done. **Evidence** — an explicit user act
+        /// saying a specific thing is finished, which cannot happen without
+        /// having started it.
+        var started = 0
 
-        var isEmpty: Bool { opens == 0 && captures == 0 && actions == 0 }
+        var isEmpty: Bool { opens == 0 && captures == 0 && brokenDown == 0 && started == 0 }
+
+        // Written by hand so that a version-1 file -- which stored a single
+        // conflated `actions` -- decodes with both counters at zero rather
+        // than having its ambiguous number silently become evidence. An old
+        // record is missing data, and missing data is unknown, not a yes.
+        enum CodingKeys: String, CodingKey {
+            case opens, captures, brokenDown, started
+        }
+
+        init() {}
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            opens = try container.decodeIfPresent(Int.self, forKey: .opens) ?? 0
+            captures = try container.decodeIfPresent(Int.self, forKey: .captures) ?? 0
+            brokenDown = try container.decodeIfPresent(Int.self, forKey: .brokenDown) ?? 0
+            started = try container.decodeIfPresent(Int.self, forKey: .started) ?? 0
+        }
     }
 
     struct Record: Codable, Equatable {
-        var version = 1
+        var version = 2
         var source: Source = .real
         /// Date only, "2026-09-18". The day the app was first opened.
         var firstOpen: String?
@@ -83,9 +112,19 @@ actor ActivationLog {
     func recordOpen() { bump { $0.opens += 1 } }
     func recordCapture() { bump { $0.captures += 1 } }
 
-    /// A card was cleared, or broken down and confirmed. The moment the north
-    /// star is about.
-    func recordAction() { bump { $0.actions += 1 } }
+    /// A card was broken into pieces and the user confirmed it.
+    ///
+    /// **Intent, not evidence.** They selected a first step. Whether they
+    /// then did it is something this app cannot see, and pretending
+    /// otherwise would make the trial number worthless.
+    func recordBrokenDown() { bump { $0.brokenDown += 1 } }
+
+    /// A card was marked done.
+    ///
+    /// The strongest evidence available without asking the user anything: an
+    /// explicit act naming a specific card as finished. Still a proxy -- they
+    /// could tick off something they did yesterday -- and TRIAL.md says so.
+    func recordStarted() { bump { $0.started += 1 } }
 
     private func bump(_ change: (inout DayCounts) -> Void) {
         var current = load()
@@ -165,12 +204,39 @@ actor ActivationLog {
     }
 }
 
-/// The two questions the 90-day target asks, answered from a record.
+/// The two questions the 90-day target asks, answered from a record — with
+/// **unknown** available as an answer, because it is often the true one.
 ///
-/// Deliberately a value type computed from stored counts rather than
-/// something incremented as it goes: a derived number can be recomputed and
-/// argued with, a stored one can only be trusted.
+/// The correction this type exists to carry: breaking a task down is the user
+/// editing a plan. It is intent. Whether they then did the thing happens in
+/// the world, where the app cannot see it. A report that counted a confirmed
+/// breakdown as "they started" would be measuring our own feature being used
+/// and calling it the user's life improving.
+///
+/// So there are three states, not two, and the operator resolves the third by
+/// asking a person rather than by reading a number (TRIAL.md).
 struct TrialReport: Equatable {
+
+    /// What we can honestly say about whether this person started something.
+    enum StartEvidence: String, Equatable {
+        /// Nothing recorded. No intent, no evidence.
+        case nothingYet
+        /// They selected a first step and confirmed it, and nothing since
+        /// says whether they did it. **Not a no.** The operator asks.
+        case brokenDownOnly
+        /// A card was marked done: an explicit act naming a thing finished.
+        case started
+
+        /// Deliberately plain, so nobody reading a report has to guess.
+        var summary: String {
+            switch self {
+            case .nothingYet: return "nothing yet"
+            case .brokenDownOnly: return "unknown — planned a step, no evidence they did it"
+            case .started: return "started something"
+            }
+        }
+    }
+
     /// Whether this record describes a person at all. `false` for fixtures,
     /// and the reason a fixture can never inflate a trial total.
     let countsAsRealUser: Bool
@@ -178,14 +244,23 @@ struct TrialReport: Equatable {
 
     let firstOpen: String?
     let totalCaptures: Int
-    let totalActions: Int
 
-    /// **Activation.** They got a card to a first action — cleared it, or
-    /// broke it down and confirmed. Capture alone is not activation: a full
-    /// inbox nobody acts on is the problem, not the fix (NORTH_STAR.md).
-    let activated: Bool
-    /// Days between first open and first action. 0 means same day.
-    let daysToActivation: Int?
+    /// **Intent.** First steps selected and confirmed.
+    let totalBrokenDown: Int
+    /// **Evidence.** Cards marked done.
+    let totalStarted: Int
+
+    /// The honest three-way answer. Prefer this over the booleans below when
+    /// reporting to a human.
+    let startEvidence: StartEvidence
+
+    /// True only where there is evidence — never for a breakdown alone.
+    let started: Bool
+    /// Days from first open to the first card marked done. 0 means same day.
+    let daysToFirstStart: Int?
+    /// Days from first open to the first confirmed breakdown. Useful for
+    /// seeing whether the feature gets used at all, and nothing more.
+    let daysToFirstBreakdown: Int?
 
     /// Distinct days with any activity.
     let activeDays: Int
@@ -203,12 +278,16 @@ struct TrialReport: Equatable {
 
         let days = record.days.filter { !$0.value.isEmpty }
         totalCaptures = days.values.reduce(0) { $0 + $1.captures }
-        totalActions = days.values.reduce(0) { $0 + $1.actions }
+        totalBrokenDown = days.values.reduce(0) { $0 + $1.brokenDown }
+        totalStarted = days.values.reduce(0) { $0 + $1.started }
         activeDays = days.count
-        activated = totalActions > 0
+
+        started = totalStarted > 0
+        startEvidence = started ? .started : (totalBrokenDown > 0 ? .brokenDownOnly : .nothingYet)
 
         guard let firstOpen, let start = Self.date(from: firstOpen, in: calendar) else {
-            daysToActivation = nil
+            daysToFirstStart = nil
+            daysToFirstBreakdown = nil
             returnedNextWeek = false
             nextWeekWindowComplete = false
             return
@@ -219,8 +298,13 @@ struct TrialReport: Equatable {
             return calendar.dateComponents([.day], from: start, to: date).day
         }
 
-        daysToActivation = days
-            .filter { $0.value.actions > 0 }
+        daysToFirstStart = days
+            .filter { $0.value.started > 0 }
+            .compactMap { offset($0.key) }
+            .min()
+
+        daysToFirstBreakdown = days
+            .filter { $0.value.brokenDown > 0 }
             .compactMap { offset($0.key) }
             .min()
 

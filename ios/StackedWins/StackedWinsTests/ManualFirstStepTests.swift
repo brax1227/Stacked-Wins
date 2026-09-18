@@ -131,3 +131,37 @@ final class ManualFirstStepTests: XCTestCase {
         XCTAssertEqual(DumpParser.parse(twice).count, 2)
     }
 }
+
+/// The five minutes is a **default the user can edit**, never a timer the app
+/// runs or a picker it makes them answer. These pin that contract.
+extension ManualFirstStepTests {
+
+    func testTheFiveMinutesIsADefaultArgumentNotARequiredChoice() {
+        // Callable with no duration at all: the sheet never has to ask.
+        XCTAssertEqual(ManualFirstStep.timebox("dishes"), "spend 5 minutes on dishes")
+        XCTAssertEqual(ManualFirstStep.defaultMinutes, 5)
+    }
+
+    func testAnyOtherDurationIsEquallyValid() {
+        // Nothing privileges 5 beyond being the default.
+        for minutes in [1, 2, 10, 25, 90] {
+            let step = ManualFirstStep.timebox("taxes", minutes: minutes)
+            XCTAssertEqual(step, "spend \(minutes) minute\(minutes == 1 ? "" : "s") on taxes")
+        }
+    }
+
+    func testWhatItProducesIsPlainEditableTextAndNothingElse() {
+        // No timer object, no schedule, no duration field on the card: the
+        // result is a string that goes into a box the user can rewrite.
+        let step = ManualFirstStep.timebox("clean the apartment")
+
+        XCTAssertNotNil(step)
+        // A user who rewrites it entirely still gets a usable card.
+        let rewritten = "just do the dishes"
+        XCTAssertEqual(DumpParser.parse(rewritten), ["just do the dishes"])
+        // And one who edits only the number does too.
+        let edited = step?.replacingOccurrences(of: "5 minutes", with: "20 minutes")
+        XCTAssertEqual(edited, "spend 20 minutes on clean the apartment")
+        XCTAssertEqual(DumpParser.parse(edited ?? "").count, 1)
+    }
+}

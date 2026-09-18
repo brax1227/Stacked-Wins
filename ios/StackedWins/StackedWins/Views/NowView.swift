@@ -612,11 +612,14 @@ final class NowViewModel: ObservableObject {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     card = next
                 }
-                // Activation: a card was cleared, or broken down and
-                // confirmed. Counts and dates only, on this phone -- see
-                // ActivationLog and TRIAL.md.
-                if move == "done" || move == "split" {
-                    await ActivationLog.shared.recordAction()
+                // Two different things, recorded as two different things.
+                // Marking a card done is evidence something happened;
+                // breaking one up is a plan the user edited, and the app
+                // cannot see whether they then did it. See TRIAL.md.
+                switch move {
+                case "done": await ActivationLog.shared.recordStarted()
+                case "split": await ActivationLog.shared.recordBrokenDown()
+                default: break
                 }
 
                 if move == "done" {

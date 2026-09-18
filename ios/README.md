@@ -110,9 +110,12 @@ no times of day, no network, no analytics SDK. **⋯ → Trial data** shows the
 user the entire file, lets them copy it, and lets them delete it without
 touching their stack.
 
-`TrialReport` derives the two numbers the 90-day target needs: *activation*
-(got a card to a first action) and *next-week return* (active 7–13 days after
-first open). Every record carries a `source`, and anything not `real` is
+`TrialReport` separates **intent from evidence**: breaking a card down
+(`brokenDown`) is the user editing a plan, marking one done (`started`) is the
+app seeing something finished, and the two are never summed. `startEvidence`
+is three-valued — `nothingYet`, `brokenDownOnly` (**unknown**, resolved by
+asking, not by scoring it a failure), `started`. It also gives *next-week
+return* (active 7–13 days after first open). Every record carries a `source`, and anything not `real` is
 excluded from trial totals — a fixture cannot be promoted to a user, and a
 user cannot be downgraded to a fixture. Definitions and the operator rubric
 live in [TRIAL.md](../TRIAL.md).

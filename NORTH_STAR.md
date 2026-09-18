@@ -67,6 +67,10 @@ matter enough to repeat here:
   it. Nothing phones home.
 - **Never silently change user data.** Suggestions are suggestions; the stack
   changes when the user confirms, and not before.
+- **Never count a plan as an action.** Breaking a task down is the user editing
+  a plan. Whether they then did it happens in the world, where the app cannot
+  see. Measurement stores the two separately and reports *unknown* where it is
+  unknown (TRIAL.md).
 
 ## What would falsify this
 

@@ -14,19 +14,46 @@ device is **not** a trial user (see *Excluding ourselves*).
 ## The two definitions
 
 Both are computed by `TrialReport` from `ActivationLog`, on the user's own
-phone. Neither is a judgement call.
+phone. The computation is mechanical — but one of its answers is deliberately
+**unknown**, and resolving that is a conversation, not a calculation.
 
-### Activation — "they started something"
+### Starting — "they did something", with unknown allowed
 
-> The user got at least one card to a **first action**: cleared it, or broke it
-> down and confirmed the pieces.
+Three states, not two. `report.startEvidence`:
 
-`report.activated`, with `report.daysToActivation` giving the lag from first
-open (`0` = same day).
+| State | Means | Counts as started |
+|---|---|---|
+| `nothingYet` | No plan, no evidence | No |
+| `brokenDownOnly` | They picked a first step and confirmed it. Nothing since says whether they did it | **Unknown — ask them** |
+| `started` | A card was marked done | Yes |
 
-**Capture is explicitly not activation.** Putting things down is Job 1, but a
-full inbox nobody acts on is the problem this product exists to fix, not
-evidence of fixing it. `testCaptureAloneIsNotActivation` pins this.
+`report.daysToFirstStart` gives the lag from first open (`0` = same day).
+
+**Breaking a task down is not starting it.** It is the user editing a plan.
+Counting it as action would be measuring our own feature being used and
+calling it the user's life improving — the exact self-deception this product
+exists to interrupt. `totalBrokenDown` and `totalStarted` are stored as
+separate numbers that are never summed
+(`testSelectingAFirstStepWithoutStartingIsNotEvidence`,
+`testNoAmountOfPlanningEverBecomesEvidence`).
+
+**Capture is not starting either.** Putting things down is Job 1, but a full
+inbox nobody acts on is the problem, not evidence of fixing it
+(`testCaptureAloneIsNotStarting`).
+
+**`brokenDownOnly` is not a no.** A user who planned a step and hasn't been
+asked yet is an open question, not a failure. Record it as unknown in the
+sheet and resolve it with the one question below. Scoring unknowns as
+failures would understate the product; scoring them as successes would
+invent evidence. Do neither.
+
+#### What "marked done" is actually worth
+
+It is an explicit act — the user tapped Done on a specific card — and it is
+the strongest signal available without asking them anything. It is still a
+**proxy**: someone can tick off a thing they did before opening the app, or
+tick off nothing while doing plenty. Treat it as corroboration for the
+interview, never as the verdict.
 
 ### Next-week return — "it wasn't a one-off"
 
@@ -82,12 +109,17 @@ Dates and integers. Nothing else.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "source": "real",
   "firstOpen": "2026-09-18",
-  "days": { "2026-09-18": { "opens": 3, "captures": 6, "actions": 2 } }
+  "days": { "2026-09-18": { "opens": 3, "captures": 6, "brokenDown": 2, "started": 1 } }
 }
 ```
+
+`brokenDown` and `started` are deliberately separate keys. A version-1 file
+stored a single conflated `actions`, and because nobody can now say what that
+number meant, it is read as **neither** rather than being quietly promoted to
+evidence (`testALegacyConflatedRecordIsNotReadAsEvidence`).
 
 No task text. No card ids. No device identifier. No times of day — only dates,
 which is why `testTheFileHoldsDatesAndCountsAndNothingElse` greps the written
@@ -120,6 +152,12 @@ below), and the two answers at the end.
 
 > "Did this help you start anything you'd been putting off? If yes, what?"
 
+This is also how a `brokenDownOnly` unknown gets resolved. There is **no
+in-app survey and no prompt asking the user to confirm every action** — that
+would tax the one screen this product keeps clear, and people under-report
+anyway. The app reports what it can see and says "unknown" for the rest; a
+person asks about the rest.
+
 A *yes* counts only with a specific task named. "Yeah it's nice" is a no.
 Enthusiasm about the idea is not evidence about the product.
 
@@ -142,11 +180,16 @@ the most interesting thing the trial could tell us.
 
 ## Reading the result
 
+**No number in the app can declare trial success on its own.** Success
+requires a real user saying it helped *and* returning the following week.
+`startEvidence` narrows who to ask and what to ask them; it does not vote.
+
 | Outcome | What it means |
 |---|---|
 | 5+ report help **and the same 5** returned | Target hit. Move on to whether it lasts past two weeks. |
-| High activation, low return | The help is real but not habitual. A tool for a bad week, not a product. |
-| High capture, low activation | The bottleneck isn't task size. The north star is aimed wrong — re-read PROBLEM.md before building anything else. |
+| High starting, low return | The help is real but not habitual. A tool for a bad week, not a product. |
+| High capture, low starting | The bottleneck isn't task size. The north star is aimed wrong — re-read PROBLEM.md before building anything else. |
+| Many breakdowns, few starts | The feature is being used and isn't working. People are picking first steps and not taking them, which is planning with extra steps — the failure mode `brokenDownOnly` exists to make visible instead of hiding inside an "actions" total. |
 | Help reported only for already-small tasks | It's a decent list and the "too big" premise is doing no work. |
 | Returns without reported help | Habit without value. The worst outcome to mistake for success. |
 

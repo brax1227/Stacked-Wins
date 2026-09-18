@@ -20,9 +20,9 @@ struct TrialView: View {
             List {
                 if let report {
                     Section {
-                        row("Started", report.firstOpen ?? "not yet")
-                        row("Got to a first action", report.activated ? "yes" : "not yet")
-                        if let days = report.daysToActivation {
+                        row("First opened", report.firstOpen ?? "not yet")
+                        row("Started something", report.startEvidence.summary)
+                        if let days = report.daysToFirstStart {
                             row("Took", days == 0 ? "the same day" : "\(days) day\(days == 1 ? "" : "s")")
                         }
                         row("Days used", "\(report.activeDays)")
@@ -39,9 +39,13 @@ struct TrialView: View {
 
                     Section {
                         row("Things put down", "\(report.totalCaptures)")
-                        row("Things acted on", "\(report.totalActions)")
+                        row("First steps picked", "\(report.totalBrokenDown)")
+                        row("Things marked done", "\(report.totalStarted)")
                     } footer: {
-                        Text("Putting something down isn't the same as starting it. Only the second number says the app did its job.")
+                        // The correction, said plainly to the person it is
+                        // about: the app can see that you picked a step, and
+                        // cannot see whether you then did it.
+                        Text("Picking a first step is a plan. Only \u{201C}marked done\u{201D} is the app seeing you finish something \u{2014} and even that it takes your word for. Neither number decides anything on its own.")
                     }
                 }
 
