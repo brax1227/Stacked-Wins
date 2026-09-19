@@ -28,8 +28,12 @@ final class ActivationLogTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeLog(source: ActivationLog.Source = .real) -> ActivationLog {
-        ActivationLog(fileURL: fileURL, calendar: calendar, now: { self.clock }, source: source)
+    /// Tests state the environment explicitly: a suite whose expectations
+    /// changed depending on whether it ran on a simulator would be useless.
+    private func makeLog(source: ActivationLog.Source = .real,
+                         environment: ActivationLog.Environment = .device) -> ActivationLog {
+        ActivationLog(fileURL: fileURL, calendar: calendar, now: { self.clock },
+                      source: source, environment: environment)
     }
 
     private func advance(days: Int) {
@@ -39,7 +43,7 @@ final class ActivationLogTests: XCTestCase {
     // MARK: - Fixtures are not people
 
     func testAFixtureIsNeverCountedAsARealUser() async throws {
-        let log = makeLog(source: .fixture)
+        let log = makeLog(source: .fixture, environment: .simulator)
         await log.recordOpen()
         await log.recordCapture()
         await log.recordStarted()
@@ -58,7 +62,7 @@ final class ActivationLogTests: XCTestCase {
         let real = makeLog(source: .real)
         await real.recordOpen()
 
-        let fixture = makeLog(source: .fixture)
+        let fixture = makeLog(source: .fixture, environment: .simulator)
         await fixture.recordStarted()
 
         let report = await fixture.report()
@@ -67,7 +71,7 @@ final class ActivationLogTests: XCTestCase {
     }
 
     func testAFixtureRecordIsNotPromotedByALaterRealWriter() async throws {
-        let fixture = makeLog(source: .fixture)
+        let fixture = makeLog(source: .fixture, environment: .simulator)
         await fixture.recordOpen()
 
         let real = makeLog(source: .real)
@@ -81,7 +85,7 @@ final class ActivationLogTests: XCTestCase {
     func testFixtureBreakdownsAndStartsAreBothExcludedFromTrialTotals() async throws {
         // Both counters, not just the old conflated one, have to be
         // unusable as trial evidence when the record is seeded.
-        let log = makeLog(source: .fixture)
+        let log = makeLog(source: .fixture, environment: .simulator)
         await log.recordOpen()
         await log.recordBrokenDown()
         await log.recordStarted()
@@ -94,6 +98,121 @@ final class ActivationLogTests: XCTestCase {
         XCTAssertEqual(report.totalBrokenDown, 1)
         XCTAssertEqual(report.totalStarted, 1)
         XCTAssertEqual(report.startEvidence, .started)
+    }
+
+    // MARK: - The source-selection boundary itself
+
+    /// The rule, checked exhaustively rather than only in whichever build the
+    /// tests happen to run under. This is the thing that keeps TRIAL.md's
+    /// promise -- simulator and demo records are fixtures -- true in
+    /// production, where nobody is passing `.fixture` by hand.
+    func testOnlyARealDeviceBuildProducesARealSource() {
+        XCTAssertEqual(ActivationLog.source(for: .device), .real)
+        XCTAssertEqual(ActivationLog.source(for: .simulator), .fixture)
+        XCTAssertEqual(ActivationLog.source(for: .debugBuild), .fixture)
+    }
+
+    /// What *this* build says about itself. On the CI simulator run this is
+    /// the real assertion: a simulator can never write a trial participant.
+    func testTheRunningBuildSelectsItsOwnSourceHonestly() {
+        let environment = ActivationLog.currentEnvironment()
+        let source = ActivationLog.currentSource()
+
+        #if targetEnvironment(simulator)
+        XCTAssertEqual(environment, .simulator)
+        XCTAssertEqual(source, .fixture, "a simulator run must never be a trial user")
+        #elseif DEBUG
+        XCTAssertEqual(environment, .debugBuild)
+        XCTAssertEqual(source, .fixture, "a debug build must never be a trial user")
+        #else
+        XCTAssertEqual(environment, .device)
+        XCTAssertEqual(source, .real)
+        #endif
+        XCTAssertEqual(source, ActivationLog.source(for: environment))
+    }
+
+    /// The default-argument boundary: a log built the way `shared` builds it,
+    /// with nothing passed, must stamp the build's own verdict. Previously
+    /// this defaulted to `.real` regardless.
+    func testALogConstructedWithNoSourceArgumentStampsTheBuildsVerdict() async throws {
+        let log = ActivationLog(fileURL: fileURL, calendar: calendar, now: { self.clock })
+        await log.recordOpen()
+
+        let report = await log.report()
+        XCTAssertEqual(report.source, ActivationLog.currentSource())
+        XCTAssertEqual(report.environment, ActivationLog.currentEnvironment())
+
+        #if targetEnvironment(simulator) || DEBUG
+        XCTAssertEqual(report.eligibility, .excluded,
+                       "a record written by this build must not be counted as a participant")
+        #endif
+    }
+
+    // MARK: - Eligibility for the tally
+
+    func testAReleaseBuildOnRealHardwareIsEligible() async throws {
+        let log = makeLog(source: .real, environment: .device)
+        await log.recordOpen()
+
+        let report = await log.report()
+        XCTAssertEqual(report.eligibility, .eligible)
+        XCTAssertTrue(report.countsAsRealUser)
+    }
+
+    func testSimulatorAndDebugRecordsAreExcludedNotMerelyFlagged() async throws {
+        for environment in [ActivationLog.Environment.simulator, .debugBuild] {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("env-\(environment.rawValue)-\(UUID().uuidString)", isDirectory: true)
+                .appendingPathComponent("activation.json")
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+            let log = ActivationLog(fileURL: url, calendar: calendar, now: { self.clock },
+                                    source: ActivationLog.source(for: environment),
+                                    environment: environment)
+            await log.recordOpen()
+            await log.recordStarted()
+
+            let report = await log.report()
+            XCTAssertEqual(report.eligibility, .excluded, "\(environment.rawValue)")
+            XCTAssertFalse(report.countsAsRealUser)
+        }
+    }
+
+    /// A record from before source selection existed. Its `real` source is
+    /// preserved -- history is not rewritten -- but it cannot be counted
+    /// until a person vouches for it.
+    func testARecordWithNoEnvironmentIsSurfacedRatherThanCountedOrDiscarded() async throws {
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let historical = #"{"version":2,"source":"real","firstOpen":"2026-09-18","days":{"2026-09-18":{"opens":2,"captures":1,"brokenDown":0,"started":1}}}"#
+        try Data(historical.utf8).write(to: fileURL)
+
+        let report = await makeLog().report()
+
+        XCTAssertEqual(report.source, .real, "history is not silently reclassified")
+        XCTAssertTrue(report.countsAsRealUser, "its own source still says what it said")
+        XCTAssertNil(report.environment)
+        XCTAssertEqual(report.eligibility, .needsOperatorConfirmation,
+                       "unknown provenance is neither counted nor thrown away")
+        XCTAssertTrue(report.eligibility.summary.contains("operator"))
+        // The activity itself is read normally.
+        XCTAssertTrue(report.started)
+    }
+
+    func testAnExistingRealRecordKeepsItsEnvironmentWhenWrittenToAgain() async throws {
+        // A device-stamped record reopened by any later writer keeps both its
+        // source and the environment it was born in.
+        let first = makeLog(source: .real, environment: .device)
+        await first.recordOpen()
+
+        let later = ActivationLog(fileURL: fileURL, calendar: calendar, now: { self.clock },
+                                  source: .fixture, environment: .simulator)
+        await later.recordStarted()
+
+        let report = await later.report()
+        XCTAssertEqual(report.source, .real)
+        XCTAssertEqual(report.environment, .device)
+        XCTAssertEqual(report.eligibility, .eligible)
     }
 
     // MARK: - Intent is not evidence
@@ -318,6 +437,98 @@ final class ActivationLogTests: XCTestCase {
         XCTAssertTrue(report.nextWeekWindowComplete, "day 14: now a no really is a no")
     }
 
+    // MARK: - When the window actually closes
+
+    /// A report generated at `hour` on the day `day` after first open, with
+    /// no return recorded. The question is only whether it dares call itself
+    /// answered.
+    private func windowComplete(onDay day: Int, hour: Int) async throws -> Bool {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("close-\(day)-\(hour)-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("activation.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let open = calendar.date(from: DateComponents(year: 2026, month: 9, day: 18, hour: 9))!
+        var moment = open
+        let log = ActivationLog(fileURL: url, calendar: calendar, now: { moment },
+                                source: .real, environment: .device)
+        await log.recordOpen()
+
+        let thatDay = calendar.date(byAdding: .day, value: day, to: calendar.startOfDay(for: open))!
+        moment = calendar.date(byAdding: .hour, value: hour, to: thatDay)!
+        return await log.report().nextWeekWindowComplete
+    }
+
+    /// Day 13 is the last day a return counts, so the whole of it is still
+    /// live. Closing at its first minute would turn someone who came back
+    /// that afternoon into a recorded "no".
+    func testTheWindowIsStillOpenAtTheVeryStartOfTheLastEligibleDay() async throws {
+        let complete = try await windowComplete(onDay: 13, hour: 0)
+        XCTAssertFalse(complete, "00:00 on day 13: the user has all day to come back")
+    }
+
+    func testTheWindowIsStillOpenAtTheVeryEndOfTheLastEligibleDay() async throws {
+        let complete = try await windowComplete(onDay: 13, hour: 23)
+        XCTAssertFalse(complete, "23:00 on day 13: still their day")
+    }
+
+    func testTheWindowClosesAtTheStartOfTheDayAfterTheLastEligibleOne() async throws {
+        let complete = try await windowComplete(onDay: 14, hour: 0)
+        XCTAssertTrue(complete, "00:00 on day 14: now a no is a no")
+    }
+
+    func testTheWindowStaysClosedAfterwards() async throws {
+        for day in [14, 15, 30] {
+            let complete = try await windowComplete(onDay: day, hour: 12)
+            XCTAssertTrue(complete, "day \(day)")
+        }
+    }
+
+    func testTheWindowIsOpenThroughoutTheDaysBeforeIt() async throws {
+        for day in [0, 6, 7, 12] {
+            let complete = try await windowComplete(onDay: day, hour: 12)
+            XCTAssertFalse(complete, "day \(day) is inside or before the window")
+        }
+    }
+
+    /// A day is 23 or 25 hours long across a DST change, so a close computed
+    /// from elapsed time rather than from calendar days would drift by one.
+    /// US DST ends on 2026-11-01; opening on 2026-10-26 puts that inside the
+    /// return window.
+    func testTheBoundaryHoldsAcrossADaylightSavingChange() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dst-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("activation.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let open = calendar.date(from: DateComponents(year: 2026, month: 10, day: 26, hour: 9))!
+        var moment = open
+        let log = ActivationLog(fileURL: url, calendar: calendar, now: { moment },
+                                source: .real, environment: .device)
+        await log.recordOpen()
+
+        func atDay(_ day: Int, hour: Int) -> Date {
+            let midnight = calendar.date(byAdding: .day, value: day, to: calendar.startOfDay(for: open))!
+            return calendar.date(byAdding: .hour, value: hour, to: midnight)!
+        }
+
+        // 2026-11-08, the last eligible day, five weekdays past the change.
+        moment = atDay(13, hour: 23)
+        var report = await log.report()
+        XCTAssertFalse(report.nextWeekWindowComplete, "day 13 after a DST change is still day 13")
+
+        moment = atDay(14, hour: 0)
+        report = await log.report()
+        XCTAssertTrue(report.nextWeekWindowComplete, "and day 14 is still day 14")
+
+        // A return on the far side of the change still lands in the window.
+        moment = atDay(9, hour: 10)
+        await log.recordOpen()
+        moment = atDay(14, hour: 0)
+        report = await log.report()
+        XCTAssertTrue(report.returnedNextWeek, "a day-9 return survives the clocks changing")
+    }
+
     // MARK: - What it stores, and what it doesn't
 
     func testTheFileHoldsDatesAndCountsAndNothingElse() async throws {
@@ -339,8 +550,14 @@ final class ActivationLogTests: XCTestCase {
         XCTAssertFalse(raw.lowercased().contains("title"))
         XCTAssertFalse(raw.lowercased().contains("uuid"))
 
+        // An exact key set, so that adding a field to the stored file is a
+        // decision someone has to make on purpose rather than something that
+        // happens quietly. `environment` describes the build -- device,
+        // simulator, debug -- and says nothing about the person.
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
-        XCTAssertEqual(Set(json.keys), ["version", "source", "firstOpen", "days"])
+        XCTAssertEqual(Set(json.keys), ["version", "source", "environment", "firstOpen", "days"])
+        XCTAssertTrue(["device", "simulator", "debugBuild"].contains(json["environment"] as? String ?? ""),
+                      "environment is one of three fixed build kinds, never free text")
 
         let days = try XCTUnwrap(json["days"] as? [String: [String: Int]])
         XCTAssertEqual(days.keys.first, "2026-09-18", "keyed by date only")

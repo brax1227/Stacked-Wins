@@ -115,8 +115,11 @@ touching their stack.
 app seeing something finished, and the two are never summed. `startEvidence`
 is three-valued — `nothingYet`, `brokenDownOnly` (**unknown**, resolved by
 asking, not by scoring it a failure), `started`. It also gives *next-week
-return* (active 7–13 days after first open). Every record carries a `source`, and anything not `real` is
-excluded from trial totals — a fixture cannot be promoted to a user, and a
+return* (active 7–13 days after first open). The build picks its own `source` — a simulator or debug
+build writes a `fixture`, so our own runs cannot masquerade as participants —
+and `eligibility` is three-valued, because a record written before selection
+existed is `needsOperatorConfirmation` rather than being silently counted or
+silently discarded. Anything not eligible is excluded from trial totals — a fixture cannot be promoted to a user, and a
 user cannot be downgraded to a fixture. Definitions and the operator rubric
 live in [TRIAL.md](../TRIAL.md).
 

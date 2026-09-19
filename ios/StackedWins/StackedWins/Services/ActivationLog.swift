@@ -32,6 +32,48 @@ actor ActivationLog {
         case fixture
     }
 
+    /// What was running when the record was first written.
+    ///
+    /// TRIAL.md promises that simulator and demo records are fixtures. That
+    /// promise was previously kept only where a test passed `.fixture` by
+    /// hand -- `ActivationLog.shared` took the `.real` default, so a debug
+    /// build or a simulator run wrote a record indistinguishable from a trial
+    /// participant's. This is what closes that: the build decides, at the
+    /// point the record is born, and the decision is stored rather than
+    /// recomputed later.
+    enum Environment: String, Codable, Equatable {
+        /// A release build on real hardware. The only thing a trial user runs.
+        case device
+        /// Xcode's simulator. Ours, never a participant's.
+        case simulator
+        /// A debug build, including one side-loaded onto a phone.
+        case debugBuild
+    }
+
+    /// What this build is. Resolved at compile time; there is nothing here a
+    /// running app could get wrong.
+    static func currentEnvironment() -> Environment {
+        #if targetEnvironment(simulator)
+        return .simulator
+        #elseif DEBUG
+        return .debugBuild
+        #else
+        return .device
+        #endif
+    }
+
+    /// The rule, separated from the `#if` so it can be tested exhaustively
+    /// rather than only in whichever build the tests happen to run.
+    static func source(for environment: Environment) -> Source {
+        environment == .device ? .real : .fixture
+    }
+
+    /// What a record written by *this* build is. `ActivationLog.shared` uses
+    /// it, so the default is the correct answer instead of an optimistic one.
+    static func currentSource() -> Source {
+        source(for: currentEnvironment())
+    }
+
     /// What one day looked like. Counts only.
     ///
     /// `brokenDown` and `started` are separate on purpose and must never be
@@ -76,6 +118,12 @@ actor ActivationLog {
     struct Record: Codable, Equatable {
         var version = 2
         var source: Source = .real
+        /// What was running when this record was born. **Absent means the
+        /// record predates source selection**, so its provenance is unknown
+        /// and an operator has to vouch for it before it counts. Never
+        /// back-filled: guessing at history is how you get a tally you
+        /// cannot defend.
+        var environment: Environment?
         /// Date only, "2026-09-18". The day the app was first opened.
         var firstOpen: String?
         /// Day -> what happened. Keyed by date only, on purpose.
@@ -86,18 +134,27 @@ actor ActivationLog {
     private let calendar: Calendar
     private let now: () -> Date
     private let source: Source
+    private let environment: Environment
     private var record: Record?
 
+    /// - Parameters:
+    ///   - source: defaults to what this build is, not to `.real`. A
+    ///     simulator or debug run therefore writes a fixture without anyone
+    ///     having to remember to say so.
+    ///   - environment: stored alongside it, so a later reader can tell
+    ///     whether the source was chosen or inherited.
     init(
         fileURL: URL = ActivationLog.defaultFileURL(),
         calendar: Calendar = .autoupdatingCurrent,
         now: @escaping () -> Date = Date.init,
-        source: Source = .real
+        source: Source = ActivationLog.currentSource(),
+        environment: Environment = ActivationLog.currentEnvironment()
     ) {
         self.fileURL = fileURL
         self.calendar = calendar
         self.now = now
         self.source = source
+        self.environment = environment
     }
 
     static func defaultFileURL() -> URL {
@@ -136,6 +193,7 @@ actor ActivationLog {
         if current.firstOpen == nil {
             current.firstOpen = today
             current.source = source
+            current.environment = environment
         }
 
         var counts = current.days[today] ?? DayCounts()
@@ -180,7 +238,7 @@ actor ActivationLog {
         guard let data = try? Data(contentsOf: fileURL),
               let decoded = try? JSONDecoder().decode(Record.self, from: data)
         else {
-            let fresh = Record(source: source)
+            let fresh = Record(source: source, environment: environment)
             record = fresh
             return fresh
         }
@@ -237,10 +295,38 @@ struct TrialReport: Equatable {
         }
     }
 
-    /// Whether this record describes a person at all. `false` for fixtures,
-    /// and the reason a fixture can never inflate a trial total.
+    /// Whether a record may be counted as a trial participant.
+    enum Eligibility: String, Equatable {
+        /// A real source, written by a release build on real hardware.
+        case eligible
+        /// A fixture: simulator, debug build, demo or test. Never counted.
+        case excluded
+        /// A real source whose environment is absent, so it predates source
+        /// selection and could be anyone's -- including one of our own
+        /// simulator runs. **Not excluded and not counted**: an operator has
+        /// to vouch for it by name before it enters a tally. Guessing either
+        /// way would be inventing the answer.
+        case needsOperatorConfirmation
+
+        var summary: String {
+            switch self {
+            case .eligible: return "eligible"
+            case .excluded: return "excluded — test data"
+            case .needsOperatorConfirmation: return "unconfirmed — operator must vouch for this record"
+            }
+        }
+    }
+
+    /// Whether this record's *source* says it describes a person. Unchanged
+    /// by environment, so historical `real` records are never silently
+    /// reclassified into test data. Use `eligibility` for the tally.
     let countsAsRealUser: Bool
+    /// What the tally must use. Requires an explicit operator decision for
+    /// anything whose provenance cannot be read off the record.
+    let eligibility: Eligibility
     let source: ActivationLog.Source
+    /// Absent for records written before source selection existed.
+    let environment: ActivationLog.Environment?
 
     let firstOpen: String?
     let totalCaptures: Int
@@ -271,9 +357,30 @@ struct TrialReport: Equatable {
     /// reads as "too early to say" instead of a failure.
     let nextWeekWindowComplete: Bool
 
+    /// Days after first open that count as "the following week", inclusive.
+    /// The single source of truth for both whether a return lands inside it
+    /// and when it stops being answerable.
+    static let returnWindow = 7...13
+
     init(record: ActivationLog.Record, calendar: Calendar, today: Date) {
         source = record.source
+        environment = record.environment
         countsAsRealUser = record.source == .real
+
+        switch (record.source, record.environment) {
+        case (.fixture, _):
+            eligibility = .excluded
+        case (.real, .some(.device)):
+            eligibility = .eligible
+        case (.real, .some):
+            // A real source stamped with a non-device environment should not
+            // occur -- selection would have made it a fixture -- so treat it
+            // as needing a human rather than trusting either half.
+            eligibility = .needsOperatorConfirmation
+        case (.real, .none):
+            eligibility = .needsOperatorConfirmation
+        }
+
         firstOpen = record.firstOpen
 
         let days = record.days.filter { !$0.value.isEmpty }
@@ -310,11 +417,26 @@ struct TrialReport: Equatable {
 
         returnedNextWeek = days.contains { day, counts in
             guard !counts.isEmpty, let delta = offset(day) else { return false }
-            return (7...13).contains(delta)
+            return Self.returnWindow.contains(delta)
         }
 
-        let elapsed = calendar.dateComponents([.day], from: start, to: today).day ?? 0
-        nextWeekWindowComplete = elapsed >= 13
+        // The window is days 7 THROUGH 13, so day 13 is the last eligible
+        // day and the question stays open for all of it. Closing at
+        // `elapsed >= 13` declared it answered at 00:00 on day 13, turning a
+        // user who returned that afternoon into a recorded "no" -- the window
+        // shuts at the start of day 14 and not a moment sooner.
+        //
+        // Compared date-to-date rather than instant-to-instant: `today` is a
+        // real timestamp and `start` is a midnight, so a raw difference would
+        // otherwise be a fraction of a day that rounds unpredictably. Day
+        // arithmetic between two midnights is also exact across a DST change,
+        // where a "day" is 23 or 25 hours long.
+        let elapsed = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: start),
+            to: calendar.startOfDay(for: today)
+        ).day ?? 0
+        nextWeekWindowComplete = elapsed >= Self.returnWindow.upperBound + 1
     }
 
     private static func date(from day: String, in calendar: Calendar) -> Date? {

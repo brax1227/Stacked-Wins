@@ -67,19 +67,65 @@ later and does not count either.
 so a trial still in progress reads as **"too early to say"** rather than a
 failure. A user on day 5 has not failed to return.
 
+**The window closes at the start of day 14, not during day 13.** Day 13 is the
+last eligible day and stays open for the whole of it; an earlier version
+closed at `elapsed >= 13` and so declared the question answered at 00:00 on
+day 13, turning anyone who came back that afternoon into a recorded *no*. The
+comparison is date-to-date, which also keeps it exact across a daylight-saving
+change, where a day is 23 or 25 hours long
+(`testTheWindowIsStillOpenAtTheVeryEndOfTheLastEligibleDay`,
+`testTheWindowClosesAtTheStartOfTheDayAfterTheLastEligibleOne`,
+`testTheBoundaryHoldsAcrossADaylightSavingChange`).
+
 ---
 
 ## Fixture data is never a user
 
 Every record carries `source`, stored in the file rather than inferred:
 
-| `source` | Means | Counted in trial totals |
-|---|---|---|
-| `real` | A person using the app | **Yes** |
-| `fixture` | A test, demo, seeded or simulator record | **No** |
+| `source` | Means |
+|---|---|
+| `real` | Written by a release build on real hardware |
+| `fixture` | A test, demo, seeded or simulator record |
 
-`TrialReport.countsAsRealUser` is false for anything but `real`, and the trial
-tally must filter on it. Two rules make this hard to get wrong by accident:
+### The tally filters on eligibility, not on source
+
+`source` says what a record claims; **`TrialReport.eligibility` says whether it
+may be counted**, and it has three values because two would force a guess:
+
+| Eligibility | When | In the tally |
+|---|---|---|
+| `eligible` | `real` source, written by a release build on real hardware | **Counted** |
+| `excluded` | Any fixture — simulator, debug build, demo, test | **Never counted** |
+| `needsOperatorConfirmation` | A `real` source with **no environment recorded**, i.e. written before the app tracked which kind of build it was | **Counted only once a person vouches for it by name** |
+
+The third exists because history is not rewritten. A pre-existing `real`
+record keeps its source — it is not silently reclassified into test data — but
+it also cannot walk into a tally unexamined, because it might be one of our
+own simulator runs from before selection existed. Record it in the sheet as
+unconfirmed and resolve it the same way an unknown start is resolved: ask.
+
+### The build picks its own source
+
+`ActivationLog.shared` no longer defaults to `real`. `currentEnvironment()`
+resolves at compile time and `source(for:)` maps it:
+
+| Build | Source |
+|---|---|
+| Release on a device | `real` |
+| Simulator | `fixture` |
+| Debug build | `fixture` |
+
+So a simulator run cannot masquerade as a participant even if nobody
+remembers to say so — which was the gap between this document's promise and
+what production actually did. Tested at the boundary itself
+(`testOnlyARealDeviceBuildProducesARealSource`,
+`testTheRunningBuildSelectsItsOwnSourceHonestly`,
+`testALogConstructedWithNoSourceArgumentStampsTheBuildsVerdict`), not only
+through fixtures passed in by hand. On the CI simulator run, the second of
+those asserts the build calls *itself* a fixture.
+
+Two further rules make this hard to get wrong by accident:
 
 - A record that starts `real` **cannot be downgraded** by a later fixture-sourced
   write. A real trial user can't be reclassified into test data.
@@ -111,6 +157,7 @@ Dates and integers. Nothing else.
 {
   "version": 2,
   "source": "real",
+  "environment": "device",
   "firstOpen": "2026-09-18",
   "days": { "2026-09-18": { "opens": 3, "captures": 6, "brokenDown": 2, "started": 1 } }
 }
@@ -120,6 +167,10 @@ Dates and integers. Nothing else.
 stored a single conflated `actions`, and because nobody can now say what that
 number meant, it is read as **neither** rather than being quietly promoted to
 evidence (`testALegacyConflatedRecordIsNotReadAsEvidence`).
+
+`environment` is one of three fixed build kinds — `device`, `simulator`,
+`debugBuild` — and describes the build, never the person or the hardware
+model. Its absence means the record predates source selection.
 
 No task text. No card ids. No device identifier. No times of day — only dates,
 which is why `testTheFileHoldsDatesAndCountsAndNothingElse` greps the written
@@ -198,8 +249,23 @@ falsify the direction. They were written down in advance on purpose.
 
 ---
 
+## The trial cannot start on any build that exists today
+
+**Correcting an earlier version of this document, which said the trial runs on
+TestFlight builds that already exist. It does not.**
+
+The newest build on TestFlight is **1.3.0 (68)**, from `da1444f4`. It contains
+none of this: no manual fallback, **no measurement at all**, no Trial data
+screen. A trial run on it would produce zero activation records, and testers
+whose phones lack Apple Intelligence — exactly the people the fallback was
+built for — would still get an empty box.
+
+[RELEASE_GATE.md](./RELEASE_GATE.md) holds the reviewed SHA, the device
+validation checklist, and the gate. Nothing in it has been executed: no
+upload, no deployment, no submission.
+
 ## Out of scope for this trial
 
-No paid services, no external telemetry, no recruitment or outreach performed
-by the implementer, and no App Store release. The trial runs on TestFlight
-builds that already exist.
+No paid services, no external telemetry, and no recruitment or outreach
+performed by the implementer. Merge, version bump, release dispatch and
+recruiting are a human's to do.

@@ -32,9 +32,7 @@ struct TrialView: View {
                     } header: {
                         Text("This phone").textCase(nil)
                     } footer: {
-                        Text(report.countsAsRealUser
-                             ? "Counted as a real trial user."
-                             : "Marked as test data — excluded from trial totals.")
+                        Text(eligibilityFooter(report))
                     }
 
                     Section {
@@ -99,6 +97,21 @@ struct TrialView: View {
             } message: {
                 Text("Your stack is not touched. Only these counts go.")
             }
+        }
+    }
+
+    /// Said plainly, including when the honest answer is "somebody has to
+    /// check". A screen that rounded that to yes or no would be the same
+    /// mistake as counting a plan as an action.
+    private func eligibilityFooter(_ report: TrialReport) -> String {
+        switch report.eligibility {
+        case .eligible:
+            return "Counted as a real trial user."
+        case .excluded:
+            return "Recorded on a simulator or a debug build — excluded from trial totals."
+        case .needsOperatorConfirmation:
+            return "This record started before the app tracked which kind of build wrote it, "
+                + "so it can't count until someone confirms whose phone it is."
         }
     }
 
