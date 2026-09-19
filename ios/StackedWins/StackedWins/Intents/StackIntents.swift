@@ -55,6 +55,7 @@ struct AddToStackIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let result = try await StackBackends.current().dump(text, into: lane.kind)
+        await ActivationLog.shared.recordCapture()
         // Short on purpose: Siri reads this out loud, and the reason you used
         // your voice is that you were in the middle of something else.
         let dialog: IntentDialog = result.added == 1
