@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "source": "real",
+  "firstOpen": "2026-10-28",
+  "days": {
+    "2026-10-28": {
+      "opens": 6,
+      "captures": 7,
+      "brokenDown": 1,
+      "started": 1
+    },
+    "2026-10-29": {
+      "opens": 5,
+      "captures": 0,
+      "brokenDown": 0,
+      "started": 0
+    }
+  },
+  "environment": "device"
+}

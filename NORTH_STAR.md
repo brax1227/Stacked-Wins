@@ -72,13 +72,22 @@ matter enough to repeat here:
   see. Measurement stores the two separately and reports *unknown* where it is
   unknown (TRIAL.md).
 
-## What would falsify this
+## What would count against this
 
-Worth writing down now, while it is cheap to be honest:
+Worth writing down now, while it is cheap to be honest. These are the patterns
+we agreed in advance to take seriously — the ones that should make us re-read
+[PROBLEM.md](./PROBLEM.md) rather than explain them away:
 
-- Trial users capture tasks and never act on them → the bottleneck is not
-  task size, and "help users start" is aimed at the wrong half.
-- Users act, but only on tasks that were already small → the app is a decent
-  list and the "too big" premise is not doing any work.
-- Users report help but do not return → the help is real but not habit-forming,
-  and the product is a tool for a bad week rather than a product.
+- Trial users capture tasks and never act on them — which would suggest the
+  bottleneck is not task size and "help users start" is aimed at the wrong half.
+- Users act, but only on tasks that were already small — which would suggest the
+  app is a decent list and the "too big" premise is not doing any work.
+- Users report help but do not return — which would suggest the help is real but
+  not habit-forming: a tool for a bad week rather than a product.
+
+**None of the three falsifies the north star on its own.** Each has competing
+explanations the counts cannot separate — a measurement gap, who dropped out
+before day 7, what week it happened to be — and at n=10 a two-person swing moves
+any of them. [TRIAL.md](./TRIAL.md) lists the competing explanations and what
+would actually settle each one. Observing a pattern here means going and asking,
+not concluding.

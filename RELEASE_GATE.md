@@ -25,16 +25,31 @@ already exist" was **wrong**, and is corrected there.
 
 ## The reviewed SHA
 
+Refreshed 2026-09-19. Any release must name the exact SHA it was built from.
+"Latest main" is not an answer: the whole point of the fixture rules is that a
+tally can be traced to the code that produced it.
+
 | | |
 |---|---|
-| Branch | `claude/visualize-task-list-0kzjhk` |
-| Reviewed and verified by Codex | **`14331e06855e8079ea92bdba0b017bcc0b920a69`** |
-| Verified CI | run `35407659551` — simulator compile + test job succeeded; deployment job skipped |
-| Head at time of writing | this commit, which adds the STACKED-20260918-03 corrections on top |
+| Branch | `claude/visualize-task-list-0kzjhk` (PR #23, open, **not merged**) |
+| Last SHA reviewed by Codex | `14331e06855e8079ea92bdba0b017bcc0b920a69` (STACKED-20260918-02) |
+| **Current candidate head** | **`__HEAD_SHA__`** (a later commit on this branch may substitute this identifier into this table and change nothing else) |
+| Last commit touching iOS source | `b5045d96fad8ca31816b1283860411c7707b9f0b` — the STACKED-20260918-03 fixes (day-14 window close, build-selected source) |
+| Verified CI on `b5045d9` | run [`35411722023`](https://github.com/brax1227/Stacked-Wins/actions/runs/35411722023) — success; simulator compile + test job green, **146 tests**, deployment job skipped |
+| Verified CI on `14331e06` | run `35407659551` — success |
 
-Any release must name the exact SHA it was built from. "Latest main" is not an
-answer: the whole point of the fixture rules is that a tally can be traced to
-the code that produced it.
+**What Codex has and has not reviewed.** Review closed at `14331e06`. Two
+commits sit on top of it and are **awaiting review**:
+
+| Commit | Contents | Touches the app binary |
+|---|---|---|
+| `b5045d9` | STACKED-20260918-03 review fixes in `ActivationLog`, `TrialView`, their tests, TRIAL.md, this file | **Yes** |
+| `__HEAD_SHA__` | STACKED-20260919-04: `tools/trial-scorecard/` (offline Node CLI, run by the operator on a laptop), plus TRIAL.md and NORTH_STAR.md interpretation corrections | **No** — no file under `ios/` changed |
+
+The scorecard is not shipped and cannot be: it is a Node script in `tools/`,
+outside the Xcode project, and nothing in the app references it. It changes
+what the operator does with an export after a participant sends it, not what
+the build does.
 
 ---
 
@@ -91,6 +106,8 @@ real phone and a human watching.
 - [ ] Trial start date recorded, and it is **after** the build's upload date
 - [ ] The author's own device recorded as excluded, with its `firstOpen` noted
 - [ ] Every tester told, in plain words, what the app records and that they can read and delete it
+- [ ] A dataset directory created for the real trial with `trialStart` set, the author's export filed under `"founder": true`, and **no** `DATASET.json` declaring it synthetic
+- [ ] `node tools/trial-scorecard/demo.mjs` and `node --test 'tools/trial-scorecard/*.test.mjs'` both pass on the machine the operator will tally on
 
 ---
 
@@ -98,9 +115,9 @@ real phone and a human watching.
 
 | Step | Who |
 |---|---|
-| Implementation, tests, this checklist | Claude |
+| Implementation, tests, this checklist, the offline scorecard | Claude |
 | Code review, approval | Codex |
-| Merge, version bump, dispatch, recruiting | **A human — Braxton** |
+| Merge, version bump, dispatch, recruiting, tallying real exports | **A human — Braxton** |
 
 The implementer proposing a release and the implementer performing it are
 different things. Everything above stops at "proposed".

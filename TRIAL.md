@@ -229,23 +229,73 @@ the most interesting thing the trial could tell us.
 
 ---
 
+## Counting it: the operator scorecard
+
+[`tools/trial-scorecard/`](./tools/trial-scorecard/README.md) does the
+arithmetic offline, on a folder of exports participants chose to send plus the
+operator's pseudonymous notes. It is a counting tool: no network, no
+collection, no device access, nothing identifying read or written.
+
+```
+node tools/trial-scorecard/scorecard.mjs --dataset <dir>
+node tools/trial-scorecard/demo.mjs      # proves the awkward cases, on synthetic data
+```
+
+It exists because the milestone is easy to *appear* to hit. It counts distinct
+eligible people, not files; it holds back the same export filed under two
+pseudonyms; it excludes fixtures, simulator runs and the author's own device;
+it never promotes a record with missing provenance; and it intersects help and
+return on the **same** people rather than adding two fives together. Anything
+it cannot settle comes out as `unknown` and exits non-zero, so an incomplete
+tally cannot be mistaken for a clean one.
+
+What it does not do is interpret. See below.
+
+---
+
 ## Reading the result
 
 **No number in the app can declare trial success on its own.** Success
 requires a real user saying it helped *and* returning the following week.
 `startEvidence` narrows who to ask and what to ask them; it does not vote.
 
+### One outcome is decisive; the rest are leads
+
 | Outcome | What it means |
 |---|---|
-| 5+ report help **and the same 5** returned | Target hit. Move on to whether it lasts past two weeks. |
-| High starting, low return | The help is real but not habitual. A tool for a bad week, not a product. |
-| High capture, low starting | The bottleneck isn't task size. The north star is aimed wrong — re-read PROBLEM.md before building anything else. |
-| Many breakdowns, few starts | The feature is being used and isn't working. People are picking first steps and not taking them, which is planning with extra steps — the failure mode `brokenDownOnly` exists to make visible instead of hiding inside an "actions" total. |
-| Help reported only for already-small tasks | It's a decent list and the "too big" premise is doing no work. |
-| Returns without reported help | Habit without value. The worst outcome to mistake for success. |
+| 5+ report specific help **and the same 5** returned | **The milestone is hit.** It is the bar we set in advance and it stands. What it is *not* is proof the product works in general: ten self-selected people, no control group, no blinding, and an operator who wants a yes. The next question is whether it survives past two weeks and past people who know us. |
 
-The last three are in [NORTH_STAR.md](./NORTH_STAR.md) as the things that would
-falsify the direction. They were written down in advance on purpose.
+Every other pattern below is a **diagnostic observation**: a place to point the
+next conversation, not a verdict. Each has at least two explanations that the
+numbers alone cannot separate, and at n=10 a two-person swing moves any of them.
+
+| Observation | Explanations it cannot separate | What would actually tell us |
+|---|---|---|
+| High starting, low return | (a) The help is real but occasional — a tool for a bad week. (b) They stopped needing it for a while. (c) They forgot the app exists; nothing prompts them. (d) The window landed on a holiday or a deadline. | Ask the ones who didn't return *why*, without suggesting an answer. Absence of a return is not a report of no value. |
+| High capture, low starting | (a) The bottleneck isn't task size, so the north star is aimed at the wrong thing. (b) It **is** task size and the breakdown feature is bad at addressing it. (c) They start things and don't mark them done, so we can't see it. | (c) is a measurement gap and must be ruled out first — ask whether they did anything they didn't tick. Only then is this evidence about the premise. |
+| Many breakdowns, few starts | (a) People pick first steps and don't take them — planning with extra steps. (b) The first steps we produce are still too big. (c) They took them and didn't tick. | Read the first steps they kept. If they are still vague, that is a feature problem, not a premise problem. |
+| Help reported only for already-small tasks | (a) The "too big" premise is doing no work and this is a decent list. (b) The people who brought big tasks bounced before the breakdown ever ran. | Check what they actually captured, and who dropped out before day 7. A premise can't be tested by the people who left. |
+| Returns without reported help | (a) Habit without value — the outcome most dangerous to mistake for success. (b) Value they can't articulate, or wouldn't say to our face. (c) They came back because we asked them for an export. | Do not score this as either. Ask what they were doing when they opened it. A prompted return isn't a return. |
+
+**None of these rows falsifies the north star by itself, and none confirms it.**
+They are written down in advance so that whatever comes back is read against a
+bar set before the data existed, not against a story built afterwards. The
+rows that would make us re-read [PROBLEM.md](./PROBLEM.md) hardest — high
+capture with low starting, and help only on small tasks — appear in
+[NORTH_STAR.md](./NORTH_STAR.md) for exactly that reason. Appearing there
+means they are the things we agreed to take seriously, not things a number
+proves.
+
+Two rules that hold whatever the counts say:
+
+- **A count is never a cause.** Nothing here establishes that the app caused a
+  start, a return, or a habit. Ten unrandomised, unblinded, self-selected
+  people, measured by a proxy, with the maker asking the questions. The
+  verbatim sentences are the evidence; the counts say who to talk to.
+- **Unknown stays unknown.** An unresolved `brokenDownOnly`, an open return
+  window and an unasked question are three different kinds of missing, and none
+  of them is a no. Reporting them as failures understates the product;
+  reporting them as successes invents evidence.
 
 ---
 
