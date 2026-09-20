@@ -30,6 +30,7 @@ One command, four synthetic datasets, and an assertion on every awkward case:
 | 12 export files, 7 pseudonyms | 5 eligible people — repeats don't inflate, and identical content under two names is held back |
 | Day 13 vs day 14 | Day 13 counts, day 14 doesn't, an unelapsed window is **unknown** rather than a no |
 | Nothing asked, nobody signed | Missing benefit stays **unknown**; fixtures, founder data and unclaimed files stay out |
+| The same files at three as-of dates | A past checkpoint gives the same answer however much later the export arrived |
 
 Unit tests underneath it:
 
@@ -111,7 +112,7 @@ repaired: a trial of ten cannot afford a silently patched record.
 | Field | Meaning |
 |---|---|
 | `trialStart` | Anyone whose `firstOpen` predates it is excluded as pre-trial |
-| `asOf` | The day the tally is being taken. `--as-of` overrides it |
+| `asOf` | The day the tally is being taken. `--as-of` overrides it. **Nothing dated after it can answer anything** — see below |
 | `participants.<pseudonym>` | A person. The key is a pseudonym the operator chose — never a name, email or device |
 | `.exports` | The files this person sent. **Ownership is declared here and nowhere else** |
 | `.reportedHelp` | `yes` \| `no` \| `unknown` — the answer to the one question |
@@ -153,6 +154,17 @@ they are different people with an `eligibilityConfirmed` on each.
 thing that decides, and everything derived from a synthetic dataset says so in
 every line. `demo.mjs` refuses to run against a dataset that is not declared
 synthetic.
+
+**Nothing after the as-of date answers for it.** A checkpoint is a question
+about a day in the past, and an export sent later contains days beyond it — a
+September tally re-run in November reads the same file. Activity dated after
+the checkpoint is skipped as evidence and reported; an answer heard after it is
+`unknown` there; an `eligibilityConfirmed` written after it does not admit the
+record there; and somebody whose first open is after it was not a participant
+yet, so they are `excluded-after-checkpoint` rather than counted. None of this
+throws anything away — re-run with a later `--as-of` and every one of them
+counts. Days dated *before* a participant's own first open are impossible and
+are reported rather than repaired.
 
 **The window is days 7–13 inclusive and closes at the start of day 14**, so the
 whole of day 13 still counts. A participant on day 5 has not failed to return:

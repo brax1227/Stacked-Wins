@@ -67,6 +67,16 @@ later and does not count either.
 so a trial still in progress reads as **"too early to say"** rather than a
 failure. A user on day 5 has not failed to return.
 
+**A day dated after today is not evidence today.** A record can legitimately
+hold one — a clock set forward and corrected, a flight across the date line, a
+device restored from a backup — and counting it would let a day that has not
+happened answer a question about one that has. `TrialReport` drops such days
+from the report and not from the file, so they count in full once the date
+reaches them (`testADayDatedAfterTodayIsNotAReturn`,
+`testTheSameDayCountsOnceTheDateReachesIt`, `testTodayCountsAndTomorrowDoesNot`,
+`testAFutureDayIsNotEvidenceOfStarting`). The scorecard applies the same rule
+against its as-of date.
+
 **The window closes at the start of day 14, not during day 13.** Day 13 is the
 last eligible day and stays open for the whole of it; an earlier version
 closed at `elapsed >= 13` and so declared the question answered at 00:00 on
@@ -248,6 +258,14 @@ it never promotes a record with missing provenance; and it intersects help and
 return on the **same** people rather than adding two fives together. Anything
 it cannot settle comes out as `unknown` and exits non-zero, so an incomplete
 tally cannot be mistaken for a clean one.
+
+**Every tally is as of a date, and nothing after that date answers for it.**
+An export arrives later than the days it describes, so a tally of week one run
+in November is reading days the operator could not have seen in September.
+Activity, answers and confirmations dated after the checkpoint are skipped and
+reported there, and counted in full at a checkpoint that reaches them — so
+re-running a past date gives the same answer it gave at the time, and a
+participant who had not installed the app yet is not counted as one.
 
 What it does not do is interpret. See below.
 

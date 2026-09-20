@@ -383,7 +383,22 @@ struct TrialReport: Equatable {
 
         firstOpen = record.firstOpen
 
-        let days = record.days.filter { !$0.value.isEmpty }
+        // Nothing dated after today can say anything about today. A record can
+        // legitimately hold such a day -- a clock set forward and corrected, a
+        // flight across the date line, a device restored from a backup -- and
+        // counting it would let a day that has not happened answer a question
+        // about one that has. Dropped from the report, never from the file: the
+        // day still exists on disk and counts once the date reaches it.
+        //
+        // A day that is not a date at all is left where it was. It is already
+        // excluded from everything derived from an offset, and silently
+        // discarding it would hide a malformed record rather than surface it.
+        let todayStart = calendar.startOfDay(for: today)
+        let days = record.days.filter { day, counts in
+            guard !counts.isEmpty else { return false }
+            guard let date = Self.date(from: day, in: calendar) else { return true }
+            return date <= todayStart
+        }
         totalCaptures = days.values.reduce(0) { $0 + $1.captures }
         totalBrokenDown = days.values.reduce(0) { $0 + $1.brokenDown }
         totalStarted = days.values.reduce(0) { $0 + $1.started }

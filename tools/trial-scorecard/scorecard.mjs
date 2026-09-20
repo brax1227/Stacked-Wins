@@ -185,6 +185,7 @@ export const ELIGIBILITY = {
   excludedFixture: 'excluded-fixture',
   excludedFounder: 'excluded-founder',
   excludedPreTrial: 'excluded-pre-trial',
+  excludedAfterCheckpoint: 'excluded-after-checkpoint',
   needsConfirmation: 'needs-operator-confirmation',
 };
 
@@ -195,12 +196,22 @@ export const ELIGIBILITY = {
  * against it. A bare `true` is not accepted anywhere in this tool: a record
  * admitted to the tally has somebody's name on the decision.
  */
-export function eligibilityOf(record, { founder = false, trialStart = null, confirmation = null } = {}) {
+export function eligibilityOf(record, { founder = false, trialStart = null, asOf = null, confirmation = null } = {}) {
   if (record.source === 'fixture') {
     return { status: ELIGIBILITY.excludedFixture, reason: 'fixture, simulator or debug build' };
   }
   if (founder) {
     return { status: ELIGIBILITY.excludedFounder, reason: 'marked as founder/author data' };
+  }
+  // Nobody who had not opened the app by the checkpoint was a participant at
+  // that checkpoint. Counting them would let a later record change an earlier
+  // tally, which is the whole thing the as-of date exists to prevent.
+  if (asOf && record.firstOpen && daysBetween(asOf, record.firstOpen) > 0) {
+    return {
+      status: ELIGIBILITY.excludedAfterCheckpoint,
+      reason: `first opened ${record.firstOpen}, after the as-of date ${asOf}`,
+      impossibleAtCheckpoint: true,
+    };
   }
   if (trialStart && record.firstOpen && daysBetween(trialStart, record.firstOpen) < 0) {
     return {
@@ -233,33 +244,68 @@ export function eligibilityOf(record, { founder = false, trialStart = null, conf
 export const ANSWER = { yes: 'yes', no: 'no', unknown: 'unknown' };
 
 /**
- * Did they come back on days 7-13?
+ * Did they come back on days 7-13, **as known at `asOf`**?
  *
  * `unknown` while the window is still open: a participant on day 5 has not
  * failed to return. The window closes at the START of day 14, so the whole
  * of day 13 still counts (see TRIAL.md).
+ *
+ * Nothing dated after `asOf` can answer anything. An export sent later may
+ * well contain days beyond the checkpoint being tallied -- a re-tally of
+ * September run in November reads the same file -- and letting those count
+ * would make a past checkpoint change every time a newer export arrives.
+ * They are skipped as evidence and reported, never quietly used.
+ *
+ * Days before `firstOpen` are impossible and are reported too. Neither is
+ * repaired: a trial of ten cannot afford a silently corrected record.
  */
 export function returnAnswer(record, asOf) {
-  if (!record.firstOpen) return { answer: ANSWER.unknown, reason: 'no first-open date' };
+  const notes = { futureDays: [], impossibleDays: [] };
+  if (!record.firstOpen) return { answer: ANSWER.unknown, reason: 'no first-open date', ...notes };
 
+  const elapsed = daysBetween(record.firstOpen, asOf);
+  if (elapsed === null) return { answer: ANSWER.unknown, reason: 'no as-of date', ...notes };
+  if (elapsed < 0) {
+    // The record begins after the checkpoint. It cannot answer a question
+    // about a day it did not exist on.
+    return {
+      answer: ANSWER.unknown,
+      reason: `first open ${record.firstOpen} is after the as-of date ${asOf}`,
+      firstOpenAfterAsOf: true,
+      ...notes,
+    };
+  }
+
+  let returnedOn = null;
   for (const [day, counts] of Object.entries(record.days ?? {})) {
-    if (!isActive(counts)) continue;
     const offset = daysBetween(record.firstOpen, day);
-    if (offset !== null && offset >= RETURN_WINDOW.first && offset <= RETURN_WINDOW.last) {
-      return { answer: ANSWER.yes, reason: `active on day ${offset}` };
+    if (offset === null) continue;
+    if (offset < 0) {
+      notes.impossibleDays.push(day);
+      continue;
+    }
+    if (daysBetween(day, asOf) < 0) {
+      if (isActive(counts)) notes.futureDays.push(day);
+      continue;
+    }
+    if (!isActive(counts)) continue;
+    if (offset >= RETURN_WINDOW.first && offset <= RETURN_WINDOW.last) {
+      if (returnedOn === null || offset < returnedOn) returnedOn = offset;
     }
   }
 
-  const elapsed = daysBetween(record.firstOpen, asOf);
-  if (elapsed === null) return { answer: ANSWER.unknown, reason: 'no as-of date' };
+  if (returnedOn !== null) {
+    return { answer: ANSWER.yes, reason: `active on day ${returnedOn}`, ...notes };
+  }
   if (elapsed < RETURN_WINDOW.last + 1) {
     return {
       answer: ANSWER.unknown,
       reason: `window still open — day ${elapsed} of ${RETURN_WINDOW.last}`,
       incompleteWindow: true,
+      ...notes,
     };
   }
-  return { answer: ANSWER.no, reason: 'window closed with no activity in it' };
+  return { answer: ANSWER.no, reason: 'window closed with no activity in it', ...notes };
 }
 
 /**
@@ -267,9 +313,11 @@ export function returnAnswer(record, asOf) {
  *
  * Only ever from an operator's written note, with a name and a date. An
  * annotation that says "yes" without saying who heard it is not evidence,
- * and is downgraded to unknown with the reason stated.
+ * and is downgraded to unknown with the reason stated. Neither is an answer
+ * heard *after* the checkpoint being tallied: at that checkpoint nobody had
+ * said it yet, and it stays unknown there however true it later turns out.
  */
-export function helpAnswer(annotation) {
+export function helpAnswer(annotation, asOf = null) {
   const claimed = annotation?.reportedHelp;
   if (claimed === undefined || claimed === null) {
     return { answer: ANSWER.unknown, reason: 'not asked yet, or no answer recorded' };
@@ -288,6 +336,13 @@ export function helpAnswer(annotation) {
       answer: ANSWER.unknown,
       reason: `"${claimed}" has no attribution — needs confirmedBy and a confirmedOn date`,
       unattributed: true,
+    };
+  }
+  if (asOf && daysBetween(on, asOf) < 0) {
+    return {
+      answer: ANSWER.unknown,
+      reason: `"${claimed}" was heard on ${on}, after the as-of date ${asOf} — not an answer at this checkpoint`,
+      afterCheckpoint: true,
     };
   }
   return { answer: claimed, reason: `recorded by ${by} on ${on}` };
@@ -480,18 +535,44 @@ export function score(dataset, { asOf } = {}) {
     const { merged, conflicts } = mergeExports(owned);
     problems.push(...conflicts.map(c => `"${id}" ${c}`));
 
-    const confirmation = validConfirmation(entry.eligibilityConfirmed, id, problems);
+    const confirmation = validConfirmation(entry.eligibilityConfirmed, id, problems, effectiveAsOf);
     const eligibility = eligibilityOf(merged, {
       founder: entry.founder === true,
       trialStart,
+      asOf: effectiveAsOf,
       confirmation,
     });
+    if (eligibility.impossibleAtCheckpoint) {
+      problems.push(
+        `"${id}" ${eligibility.reason} — not a participant at this checkpoint. `
+        + 'Re-run with a later --as-of to count them.'
+      );
+    }
 
-    const help = helpAnswer(entry);
+    const help = helpAnswer(entry, effectiveAsOf);
     if (help.unattributed) {
       problems.push(`"${id}" reportedHelp is set but unattributed — treated as unknown`);
     }
+    if (help.afterCheckpoint) {
+      problems.push(`"${id}" ${help.reason} — treated as unknown here`);
+    }
     const ret = returnAnswer(merged, effectiveAsOf);
+    // Evidence from after the checkpoint is skipped, never used quietly.
+    if (ret.futureDays?.length > 0) {
+      problems.push(
+        `"${id}" has activity dated after the as-of date ${effectiveAsOf} `
+        + `(${ret.futureDays.sort().join(', ')}) — not counted at this checkpoint`
+      );
+    }
+    if (ret.impossibleDays?.length > 0) {
+      problems.push(
+        `"${id}" has day(s) before their own first open ${merged.firstOpen} `
+        + `(${ret.impossibleDays.sort().join(', ')}) — impossible; not counted`
+      );
+    }
+    if (ret.firstOpenAfterAsOf) {
+      problems.push(`"${id}" ${ret.reason} — return is unknown, not no`);
+    }
 
     // A collision an operator has vouched past is resolved; one nobody has
     // looked at yet is held back.
@@ -535,6 +616,7 @@ export function score(dataset, { asOf } = {}) {
     excludedFixture: rows.filter(r => r.eligibility === ELIGIBILITY.excludedFixture).length,
     excludedFounder: rows.filter(r => r.eligibility === ELIGIBILITY.excludedFounder).length,
     excludedPreTrial: rows.filter(r => r.eligibility === ELIGIBILITY.excludedPreTrial).length,
+    excludedAfterCheckpoint: rows.filter(r => r.eligibility === ELIGIBILITY.excludedAfterCheckpoint).length,
     needsConfirmation: rows.filter(r => r.eligibility === ELIGIBILITY.needsConfirmation).length,
     unattributedFiles: unattributed.length,
     helpYes: helped.length,
@@ -565,8 +647,12 @@ export function score(dataset, { asOf } = {}) {
   };
 }
 
-/** An eligibility confirmation is only real if a person's name is on it. */
-function validConfirmation(raw, id, problems) {
+/**
+ * An eligibility confirmation is only real if a person's name is on it — and
+ * only at a checkpoint it predates. A note written in November cannot admit a
+ * record into a tally taken in September; it admits it into November's.
+ */
+function validConfirmation(raw, id, problems, asOf = null) {
   if (raw === undefined || raw === null) return null;
   if (raw === true) {
     problems.push(`"${id}" eligibilityConfirmed is \`true\` — needs by, on and basis; ignored`);
@@ -579,6 +665,13 @@ function validConfirmation(raw, id, problems) {
   if (typeof basis !== 'string' || basis.trim() === '') missing.push('basis');
   if (missing.length > 0) {
     problems.push(`"${id}" eligibilityConfirmed is missing ${missing.join(', ')} — ignored`);
+    return null;
+  }
+  if (asOf && daysBetween(on, asOf) < 0) {
+    problems.push(
+      `"${id}" eligibilityConfirmed is dated ${on}, after the as-of date ${asOf} — `
+      + 'a later confirmation cannot admit a record at an earlier checkpoint; ignored here'
+    );
     return null;
   }
   return { by, on, basis };
@@ -617,16 +710,17 @@ export function render(result) {
   lines.push(`${tag}SAME people, helped AND returned: ${t.sameFive} / ${MILESTONE.sameFive}`);
   lines.push('');
 
-  const excluded = t.excludedFixture + t.excludedFounder + t.excludedPreTrial;
+  const excluded = t.excludedFixture + t.excludedFounder + t.excludedPreTrial + t.excludedAfterCheckpoint;
   lines.push(`${tag}Not counted: ${excluded} excluded (${t.excludedFixture} fixture/simulator, `
-    + `${t.excludedFounder} founder, ${t.excludedPreTrial} pre-trial), `
+    + `${t.excludedFounder} founder, ${t.excludedPreTrial} pre-trial, `
+    + `${t.excludedAfterCheckpoint} not yet started at this checkpoint), `
     + `${t.needsConfirmation} awaiting operator confirmation, `
     + `${t.unattributedFiles} unattributed file(s)`);
   lines.push('');
 
-  lines.push(`${tag}${'participant'.padEnd(14)}${'eligible'.padEnd(30)}${'helped'.padEnd(10)}returned`);
+  lines.push(`${tag}${'participant'.padEnd(14)}${'eligible'.padEnd(32)}${'helped'.padEnd(10)}returned`);
   for (const row of result.rows) {
-    lines.push(`${tag}${row.id.padEnd(14)}${row.eligibility.padEnd(30)}${row.help.padEnd(10)}${row.returned}`);
+    lines.push(`${tag}${row.id.padEnd(14)}${row.eligibility.padEnd(32)}${row.help.padEnd(10)}${row.returned}`);
   }
   lines.push('');
 

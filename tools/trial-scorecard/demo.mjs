@@ -26,8 +26,8 @@ function check(description, actual, expected) {
   if (!pass) console.log(`        expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
-function run(name) {
-  const result = score(loadDataset(join(fixtures, name)));
+function run(name, options = {}) {
+  const result = score(loadDataset(join(fixtures, name)), options);
   if (!result.synthetic) {
     console.error(`FATAL: ${name} is not declared synthetic — refusing to demo with it`);
     process.exit(2);
@@ -101,7 +101,29 @@ console.log('\n4. Missing evidence stays unknown; fixtures, founder and orphans 
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n5. Nothing identifying reaches the scorecard.');
+console.log('\n5. A checkpoint cannot be answered by the future.');
+{
+  // The same files, three different as-of dates. A tally of a past day must
+  // not move because a participant later sent a fresher export.
+  const early = run('synthetic-disjoint', { asOf: '2026-09-22' });
+  check('before they installed: nobody is a participant yet', early.totals.eligible, 0);
+  check('and they are reported, not silently dropped', early.totals.excludedAfterCheckpoint, 10);
+
+  const midway = run('synthetic-disjoint', { asOf: '2026-10-05' });
+  check('midway: ten participants', midway.totals.eligible, 10);
+  check('nobody has returned YET — windows still open', midway.totals.returnUnknownIncompleteWindow, 10);
+  check('and no open window is scored as a no', midway.totals.returnNo, 0);
+  check('the answers heard on 2026-10-20 are not known yet', midway.totals.helpYes, 0);
+  check('they are unknown, not no', midway.totals.helpUnknown, 10);
+
+  const after = run('synthetic-disjoint', { asOf: '2026-11-01' });
+  check('later, the same files give the full picture', after.totals.returnYes, 5);
+  check('and the answers count once they have been heard', after.totals.helpYes, 5);
+  check('still not the same five', after.totals.sameFive, 0);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n6. Nothing identifying reaches the scorecard.');
 {
   const r = run('synthetic-disjoint');
   const text = JSON.stringify(r) + '\n' + render(r);

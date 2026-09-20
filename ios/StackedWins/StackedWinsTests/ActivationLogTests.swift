@@ -437,6 +437,83 @@ final class ActivationLogTests: XCTestCase {
         XCTAssertTrue(report.nextWeekWindowComplete, "day 14: now a no really is a no")
     }
 
+    // MARK: - Nothing dated after today answers for today
+
+    /// A clock set forward and then corrected writes a day that has not
+    /// happened yet. Before this, any such day inside the window counted as a
+    /// return the moment the file was read -- the report would say a user had
+    /// come back on day 9 while they were still on day 1.
+    func testADayDatedAfterTodayIsNotAReturn() async throws {
+        let log = makeLog()
+        await log.recordOpen()
+
+        advance(days: 9)               // clock jumps forward
+        await log.recordOpen()
+        advance(days: -9)              // and is corrected
+
+        let report = await log.report()
+        XCTAssertFalse(report.returnedNextWeek,
+                       "day 9 has not happened yet — it cannot be a return on day 0")
+        XCTAssertFalse(report.nextWeekWindowComplete,
+                       "and the window is still open, so this is unknown rather than a no")
+    }
+
+    /// The same file, once the date catches up. Nothing was thrown away.
+    func testTheSameDayCountsOnceTheDateReachesIt() async throws {
+        let log = makeLog()
+        await log.recordOpen()
+
+        advance(days: 9)
+        await log.recordOpen()
+        advance(days: -9)
+        let tooEarly = await log.report()
+        XCTAssertFalse(tooEarly.returnedNextWeek)
+
+        advance(days: 9)
+        let onTime = await log.report()
+        XCTAssertTrue(onTime.returnedNextWeek,
+                      "the day is still in the file and counts when it arrives")
+    }
+
+    /// The boundary itself: today counts, tomorrow does not.
+    func testTodayCountsAndTomorrowDoesNot() async throws {
+        let log = makeLog()
+        await log.recordOpen()
+        advance(days: 7)
+        await log.recordOpen()
+
+        advance(days: -1)
+        let dayBefore = await log.report()
+        XCTAssertFalse(dayBefore.returnedNextWeek,
+                       "day 7 read on day 6: it has not happened yet")
+
+        advance(days: 1)
+        let onTheDay = await log.report()
+        XCTAssertTrue(onTheDay.returnedNextWeek,
+                      "the same day, read on the day itself, counts")
+    }
+
+    /// A start in the future is not evidence of starting, for the same reason.
+    func testAFutureDayIsNotEvidenceOfStarting() async throws {
+        let log = makeLog()
+        await log.recordOpen()
+
+        advance(days: 4)
+        await log.recordStarted()
+        advance(days: -4)
+
+        let report = await log.report()
+        XCTAssertEqual(report.startEvidence, .nothingYet,
+                       "a card marked done on a day that has not happened is not evidence today")
+        XCTAssertEqual(report.totalStarted, 0)
+        XCTAssertNil(report.daysToFirstStart)
+
+        advance(days: 4)
+        let later = await log.report()
+        XCTAssertEqual(later.startEvidence, .started, "and it is evidence once that day arrives")
+        XCTAssertEqual(later.daysToFirstStart, 4)
+    }
+
     // MARK: - When the window actually closes
 
     /// A report generated at `hour` on the day `day` after first open, with

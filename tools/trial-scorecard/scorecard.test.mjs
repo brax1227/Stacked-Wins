@@ -255,6 +255,141 @@ test('a capture or a breakdown counts as coming back, though not as starting', (
   assert.equal(returnAnswer(record, '2026-11-01').answer, ANSWER.yes);
 });
 
+// --- the as-of cutoff ------------------------------------------------------
+//
+// A checkpoint is a question about a day in the past. An export sent later
+// contains days beyond it -- a September tally re-run in November reads the
+// same file -- and nothing after the checkpoint may answer for it. The bug
+// this replaces: any day in the 7-13 window counted as a return however far
+// in the future it was, so `returnAnswer` said YES on day 1.
+
+test('activity after the as-of date does not establish a return', () => {
+  // The reported case: first open 2026-09-01, activity on day 9, tallied on
+  // day 1. Day 9 has not happened yet.
+  const record = exp({ firstOpen: '2026-09-01', days: { '2026-09-10': { started: 1 } } });
+  const early = returnAnswer(record, '2026-09-02');
+  assert.equal(early.answer, ANSWER.unknown);
+  assert.equal(early.incompleteWindow, true);
+  assert.deepEqual(early.futureDays, ['2026-09-10']);
+
+  // The same file at a checkpoint after that day answers yes. Nothing is lost,
+  // only deferred to the checkpoint that can see it.
+  assert.equal(returnAnswer(record, '2026-09-20').answer, ANSWER.yes);
+});
+
+test('the cutoff is the as-of day itself: that day counts, the next does not', () => {
+  const record = exp({ firstOpen: '2026-09-01', days: { '2026-09-08': { opens: 1 } } });
+  // Day 7 activity, tallied on day 7.
+  assert.equal(returnAnswer(record, '2026-09-08').answer, ANSWER.yes);
+  // Tallied the day before it happened.
+  const before = returnAnswer(record, '2026-09-07');
+  assert.equal(before.answer, ANSWER.unknown);
+  assert.deepEqual(before.futureDays, ['2026-09-08']);
+});
+
+test('a future day never converts an answered no into a yes', () => {
+  // Window closed quiet, and a later export shows day 20 activity. Day 20 is
+  // outside the window anyway, but the point is the closed no stands.
+  const record = exp({ firstOpen: '2026-09-01', days: { ...daysAt('2026-09-01', [0]), '2026-09-21': { opens: 4 } } });
+  assert.equal(returnAnswer(record, '2026-09-16').answer, ANSWER.no);
+});
+
+test('a record that begins after the checkpoint answers nothing and is flagged', () => {
+  const record = exp({ firstOpen: '2026-10-01', days: daysAt('2026-10-01', [0, 8]) });
+  const answer = returnAnswer(record, '2026-09-20');
+  assert.equal(answer.answer, ANSWER.unknown);
+  assert.equal(answer.firstOpenAfterAsOf, true);
+  assert.match(answer.reason, /after the as-of date/);
+});
+
+test('someone who had not opened the app yet is not a participant at that checkpoint', () => {
+  const r = score(dataset(
+    { later: { exports: ['a.json'] } },
+    { 'a.json': exp({ firstOpen: '2026-10-01', days: daysAt('2026-10-01', [0, 8]) }) },
+    { asOf: '2026-09-20' },
+  ));
+  assert.equal(r.rows[0].eligibility, ELIGIBILITY.excludedAfterCheckpoint);
+  assert.equal(r.totals.eligible, 0);
+  assert.equal(r.totals.excludedAfterCheckpoint, 1);
+  assert.match(r.problems.join('\n'), /not a participant at this checkpoint/);
+  assert.match(r.problems.join('\n'), /Re-run with a later --as-of/);
+});
+
+test('a day before the participant\'s own first open is impossible and reported', () => {
+  const record = exp({ firstOpen: '2026-09-10', days: { '2026-09-01': { opens: 3 }, '2026-09-18': { opens: 1 } } });
+  const answer = returnAnswer(record, '2026-11-01');
+  assert.deepEqual(answer.impossibleDays, ['2026-09-01']);
+  // The legitimate day 8 still answers.
+  assert.equal(answer.answer, ANSWER.yes);
+
+  const r = score(dataset({ p1: { exports: ['a.json'] } }, { 'a.json': record }));
+  assert.match(r.problems.join('\n'), /before their own first open/);
+});
+
+test('an answer heard after the checkpoint is unknown there, and reported', () => {
+  const late = { reportedHelp: 'yes', confirmedBy: 'operator', confirmedOn: '2026-10-20' };
+  const answer = helpAnswer(late, '2026-10-01');
+  assert.equal(answer.answer, ANSWER.unknown);
+  assert.equal(answer.afterCheckpoint, true);
+  // And is the plain yes it always was once the checkpoint reaches it.
+  assert.equal(helpAnswer(late, '2026-10-20').answer, ANSWER.yes);
+  assert.equal(helpAnswer(late, '2026-11-01').answer, ANSWER.yes);
+
+  const r = score(dataset(
+    { p1: { exports: ['a.json'], ...late } },
+    { 'a.json': exp({ days: daysAt('2026-09-20', [0, 8]) }) },
+    { asOf: '2026-10-01' },
+  ));
+  assert.equal(r.totals.helpYes, 0);
+  assert.equal(r.totals.helpUnknown, 1);
+  assert.match(r.problems.join('\n'), /after the as-of date/);
+});
+
+test('a confirmation dated after the checkpoint does not admit a record there', () => {
+  const entry = {
+    exports: ['a.json'],
+    eligibilityConfirmed: { by: 'operator', on: '2026-10-21', basis: 'known tester' },
+  };
+  const legacy = { 'a.json': exp({ environment: null, days: daysAt('2026-09-20', [0]) }) };
+
+  const early = score(dataset({ p1: entry }, legacy, { asOf: '2026-10-01' }));
+  assert.equal(early.rows[0].eligibility, ELIGIBILITY.needsConfirmation);
+  assert.equal(early.totals.eligible, 0);
+  assert.match(early.problems.join('\n'), /cannot admit a record at an earlier checkpoint/);
+
+  // On the day it was written, and after, it does its job.
+  for (const asOf of ['2026-10-21', '2026-11-01']) {
+    const later = score(dataset({ p1: entry }, legacy, { asOf }));
+    assert.equal(later.rows[0].eligibility, ELIGIBILITY.eligible, asOf);
+    assert.equal(later.rows[0].admittedByConfirmation, true, asOf);
+  }
+});
+
+test('re-running an earlier checkpoint on newer files gives the earlier answer', () => {
+  // The property the cutoff exists for: a tally of a past date must not move
+  // when a participant sends a fresher export.
+  const files = {
+    'a.json': exp({ firstOpen: '2026-09-01', days: daysAt('2026-09-01', [0, 9]) }),
+    'b.json': exp({ firstOpen: '2026-09-01', days: daysAt('2026-09-01', [0, 3]) }),
+  };
+  const annotation = { reportedHelp: 'yes', confirmedBy: 'operator', confirmedOn: '2026-09-25' };
+  const at = asOf => score(dataset(
+    { p1: { exports: ['a.json'], ...annotation }, p2: { exports: ['b.json'], ...annotation } },
+    files,
+    { asOf, trialStart: '2026-09-01' },
+  ));
+
+  const september = at('2026-09-05');
+  assert.equal(september.totals.returnYes, 0);
+  assert.equal(september.totals.helpYes, 0);
+  assert.equal(september.totals.sameFive, 0);
+
+  const november = at('2026-11-01');
+  assert.equal(november.totals.returnYes, 1);
+  assert.equal(november.totals.helpYes, 2);
+  assert.equal(november.totals.sameFive, 1);
+});
+
 // --- reported help ---------------------------------------------------------
 
 test('no answer recorded is unknown, not a no', () => {
