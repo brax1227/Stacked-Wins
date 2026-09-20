@@ -30,8 +30,8 @@ because a record you can silently rewrite is not evidence.
 | **Candidate code SHA** | **`6fc88849468b05434a93637ac1d6fba02e18a9fb`** — the newest SHA that changed anything the build contains, and the one CI ran on |
 | Branch head | may sit ahead of it by **documents only**. The workflow's `paths` filter skips `ios/**/*.md` and everything outside `ios/`, so a documents commit produces no run and needs none. Self-check: `git diff --stat 6fc8884..HEAD -- ios/` must be empty |
 | Base | `origin/main` = `edf40c1086c9ea659981dd428f4e13174566e7ca` |
-| Relationship | The branch is a **strict descendant** of `main`; 7 commits ahead, 0 behind, no divergence |
-| Scope vs `main` | 63 files, +5305 / −21. 12 under `ios/`, the rest tooling and documents |
+| Relationship | The branch is a **strict descendant** of `main` — ahead only, never behind, no divergence. Self-check: `git merge-base --is-ancestor origin/main HEAD` |
+| Scope vs `main` | 12 files under `ios/` changed; the rest is tooling and documents (`git diff --name-only origin/main..HEAD -- ios/`) |
 
 **The candidate SHA changes when you merge**, and the release must be built
 from whatever SHA ends up on `main`:
@@ -58,9 +58,9 @@ Any other method means the merged SHA gets its own ledger row.
 | **`6fc8884`** | -04: SHA substitution in this file, nothing else | No | [**`35477904737`**](https://github.com/brax1227/Stacked-Wins/actions/runs/35477904737) | **success, 150 tests, `preflight` and `testflight` skipped** |
 
 **The candidate's CI match:** run `35477904737`, head SHA
-`6fc88849468b05434a93637ac1d6fba02e18a9fb` — the exact candidate head, not an
-ancestor. `compile-check` succeeded (150 executed, 0 failures); `preflight` and
-`testflight` were skipped, so no credential touched that run.
+`6fc88849468b05434a93637ac1d6fba02e18a9fb` — the candidate code SHA exactly,
+not an ancestor of it. `compile-check` succeeded (150 executed, 0 failures);
+`preflight` and `testflight` were skipped, so no credential touched that run.
 
 Off-CI, on this Linux session: 125 XCTest cases in the Foundation-only slice,
 53 Node tests and `demo.mjs` for the scorecard. Those are a faster inner loop,
@@ -73,7 +73,7 @@ not a substitute — the macOS run above is the check that counts.
 | `14331e06` | Codex | accepted (-02 findings closed) |
 | `b5045d9` | Codex | **accepted** — -03 corrections confirmed |
 | `141e3a0` | Codex (PM, STACKED-20260920-05) | **accepted** — as-of cutoff, verified independently with 53 Node tests, and run `35477904737` verified independently |
-| `c52b7dc`, `31f968a`, `6fc8884` | — | documents and SHA substitution; no app code |
+| Everything after `141e3a0` | — | documents and SHA substitution; nothing under `ios/` |
 
 **Every commit on the candidate that touches `ios/` has been reviewed and
 accepted.** No code review is outstanding.
