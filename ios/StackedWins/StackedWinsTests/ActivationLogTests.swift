@@ -437,6 +437,97 @@ final class ActivationLogTests: XCTestCase {
         XCTAssertTrue(report.nextWeekWindowComplete, "day 14: now a no really is a no")
     }
 
+    // MARK: - Deleting what's recorded
+
+    /// "⋯ → Trial data → Delete what's recorded", the one destructive thing
+    /// this screen can do, exercised against real files on disk rather than
+    /// in memory. Three claims, all of which a tester is entitled to:
+    ///
+    ///   1. The record actually leaves the disk. Not emptied, not hidden --
+    ///      gone, so "it is deleted" is a statement about the filesystem.
+    ///   2. The next report reads like a fresh install rather than crashing
+    ///      or resurrecting what was just deleted from a cached copy.
+    ///   3. **The stack is untouched.** It is a different file the user did
+    ///      not ask to lose, and someone deleting their trial data has not
+    ///      asked to lose the things they still have to do.
+    ///
+    /// The third is the one worth a test. The two files live side by side in
+    /// the same folder, and a delete written one line differently -- the
+    /// directory instead of the file -- takes the user's whole stack with it
+    /// and looks identical from inside the app until they reopen it.
+    func testDeletingTheRecordRemovesItAndLeavesTheStackAlone() async throws {
+        let folder = fileURL.deletingLastPathComponent()
+        let stackURL = folder.appendingPathComponent("stack.json")
+        let stack = LocalStackStore(fileURL: stackURL, calendar: calendar, now: { self.clock })
+        _ = try await stack.dump("call the dentist\nbook the car in", into: .need)
+
+        let log = makeLog()
+        await log.recordOpen()
+        await log.recordCapture()
+        await log.recordStarted()
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path),
+                      "precondition: the record is on disk")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stackURL.path),
+                      "precondition: so is the stack")
+        let stackBefore = try await stack.next(in: .need).item?.title
+
+        try await log.reset()
+
+        // 1. Gone from the filesystem, not merely emptied.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path),
+                       "the record file is deleted, not blanked")
+
+        // 2. A fresh install, from this instance and from a new one reading
+        //    the same path -- an in-memory copy must not survive the delete.
+        for (label, reader) in [("same instance", log), ("reopened", makeLog())] {
+            let report = await reader.report()
+            XCTAssertNil(report.firstOpen, "\(label): no first open")
+            XCTAssertEqual(report.totalCaptures, 0, "\(label): no captures")
+            XCTAssertEqual(report.totalStarted, 0, "\(label): no starts")
+            XCTAssertEqual(report.startEvidence, .nothingYet, "\(label): nothing to show")
+            XCTAssertEqual(report.activeDays, 0, "\(label): no days")
+        }
+        // What is left to copy is an empty skeleton, not silence: `load()`
+        // hands back a fresh Record when there is no file, so the export
+        // reads `{"days": {}, "environment": ..., "source": ..., "version": 2}`.
+        // Pinned as-is rather than changed under a freeze. It carries no
+        // counts and no dates -- which is the part that matters -- but it is
+        // also why the Trial data screen shows a JSON object after a delete
+        // instead of "Nothing recorded yet." Flagged for a product decision,
+        // not fixed here.
+        let exported = await log.exportJSON()
+        XCTAssertFalse(exported.contains("firstOpen"), "no first-open date survives the delete")
+        XCTAssertNil(exported.range(of: #"\d{4}-\d{2}-\d{2}"#, options: .regularExpression),
+                     "no dates at all survive the delete")
+        XCTAssertNil(exported.range(of: #"":\s*[1-9]"#, options: .regularExpression),
+                     "and no non-zero count survives it")
+
+        // 3. The stack is exactly where it was.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stackURL.path),
+                      "deleting trial data must not delete the user's stack")
+        let reopenedStack = LocalStackStore(fileURL: stackURL, calendar: calendar, now: { self.clock })
+        let stackAfter = try await reopenedStack.next(in: .need).item?.title
+        let stackEmpty = try await reopenedStack.isEmpty()
+        XCTAssertEqual(stackAfter, stackBefore, "the card on top is the same card")
+        XCTAssertFalse(stackEmpty, "and the stack still has things in it")
+    }
+
+    /// Deleting twice is not an error, and deleting before anything was ever
+    /// recorded is not either. A tester who taps it on a fresh install gets a
+    /// no-op, not a crash.
+    func testDeletingWhenThereIsNothingToDeleteIsFine() async throws {
+        let log = makeLog()
+        // A throw here fails the test on its own; the point is that neither
+        // call throws, on a fresh install or on an already-deleted record.
+        try await log.reset()
+
+        await log.recordOpen()
+        try await log.reset()
+        try await log.reset()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+    }
+
     // MARK: - Nothing dated after today answers for today
 
     /// A clock set forward and then corrected writes a day that has not

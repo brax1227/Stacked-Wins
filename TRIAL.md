@@ -199,14 +199,16 @@ untouched.
 Ten people. Keep it to ten: at this baseline the question is "does this work
 for anybody", and that answer comes from conversations, not a funnel.
 
-**Per user, record in a sheet:** a pseudonym, install date, whether their phone
-has Apple Intelligence (it changes which help they get — see *Two variants*
-below), and the two answers at the end.
+**Per user, record in a sheet:** a pseudonym, install date, **whether they saw
+the "Suggest steps" button** (see *Two variants* below), and the two answers at
+the end.
 
 1. **Day 0.** They install and use it with no walkthrough. Watching someone's
    first two minutes unprompted is worth more than the rest of the trial;
-   don't rescue them.
-2. **Day 7–13.** Ask for the export and the one question. Don't remind them
+   don't rescue them. Before you leave them to it, ask the variant question
+   below and write the answer down.
+2. **Day 7–13.** Ask for the export, the one question, **and the variant
+   question again** — it can have changed since day 0. Don't remind them
    to use the app before asking — a return you prompted isn't a return.
 
 **The one question**, asked exactly this way and not leading:
@@ -230,12 +232,39 @@ premise is wrong.
 
 ## Two variants, by accident
 
-Phones without Apple Intelligence get the manual fallback only (timebox and
-openers); phones with it also get model-written suggestions. This is not a
-designed A/B test and shouldn't be reported as one — assignment is by hardware,
-not randomised, and n is far too small. But **record which each user had**,
-because if the five who report help are all on one side of that line, that is
-the most interesting thing the trial could tell us.
+Some people get the manual fallback only (timebox and openers); others also
+get model-written suggestions. This is not a designed A/B test and shouldn't
+be reported as one — nobody is randomised and n is far too small. But **record
+which each user had**, because if the five who report help are all on one side
+of that line, that is the most interesting thing the trial could tell us.
+
+### Ask what they saw. Do not infer it from their phone.
+
+**The variant question**, at day 0 and again at day 7–13:
+
+> "When you tapped **Too big**, was there a **Suggest steps** button?"
+
+Record **yes / no / didn't try it** each time, with the date.
+
+The app does not decide this by phone model. It asks the system, at that
+moment, whether an on-device model is actually usable
+(`SystemLanguageModel.default.isAvailable`), and hides the button whenever the
+answer is no. That answer is **no** on capable hardware when Apple
+Intelligence is switched off, when the model is still downloading, and where
+the feature is unsupported — so "their phone supports it" and "they were
+offered it" are different facts, and the second is the one that affects
+whether the app helped them.
+
+It can also **change during the trial**: a model finishes downloading, someone
+turns Apple Intelligence on or off. Recording it once, at install, would
+quietly mislabel the variant for the rest of the window. Ask at both contacts
+and keep both answers.
+
+**The export cannot settle this.** It holds `version`, `source`,
+`environment`, `firstOpen` and `days` — no variant field — so this is
+operator-recorded and nothing in the data will corroborate or contradict it.
+Any claim about the two variants rests on these two answers and the dates
+beside them; write them down at the time, not from memory afterwards.
 
 ---
 
