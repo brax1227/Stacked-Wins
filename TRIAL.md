@@ -322,15 +322,26 @@ Two rules that hold whatever the counts say:
 **Correcting an earlier version of this document, which said the trial runs on
 TestFlight builds that already exist. It does not.**
 
-The newest build on TestFlight is **1.3.0 (68)**, from `da1444f4`. It contains
-none of this: no manual fallback, **no measurement at all**, no Trial data
-screen. A trial run on it would produce zero activation records, and testers
-whose phones lack Apple Intelligence — exactly the people the fallback was
-built for — would still get an empty box.
+The newest build on TestFlight is **1.3.0 (75)**, from `da1444f4`, uploaded
+2026-09-10. It contains none of this: no manual fallback, **no measurement at
+all**, no Trial data screen. A trial run on it would produce zero activation
+records, and testers whose phones lack Apple Intelligence — exactly the people
+the fallback was built for — would still get an empty box.
 
-[RELEASE_GATE.md](./RELEASE_GATE.md) holds the reviewed SHA, the device
-validation checklist, and the gate. Nothing in it has been executed: no
-upload, no deployment, no submission.
+(An earlier version of this line said *1.3.0 (68)*. Build 68 was **1.2.0**,
+from `dea9a7b4` the day before; the build number is the workflow run number,
+and `da1444f4` went up as build 75. Corrected in
+[RELEASE_GATE.md](./RELEASE_GATE.md) §1.5 with the evidence.)
+
+**The trial also cannot start on a build nobody has held.** Measurement only
+stamps a record `real` in a **Release** build on physical hardware — a Debug
+build on a phone writes fixtures, by design — so a build has to exist and be
+installed before the rubric above can be trusted at all.
+[RELEASE_GATE.md](./RELEASE_GATE.md) holds the candidate SHA, its CI match,
+what is already evidenced, the eight device checks that are not, and the two
+separate approvals: one to produce a build for the author's own phone, one to
+put it in front of anybody else. Nothing in it has been executed: no upload,
+no dispatch, no submission.
 
 ## Out of scope for this trial
 
