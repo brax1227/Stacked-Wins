@@ -27,7 +27,8 @@ because a record you can silently rewrite is not evidence.
 | | |
 |---|---|
 | Branch | `claude/visualize-task-list-0kzjhk` (PR #23, open, **not merged**) |
-| **Candidate head** | **`6fc88849468b05434a93637ac1d6fba02e18a9fb`** |
+| **Candidate code SHA** | **`6fc88849468b05434a93637ac1d6fba02e18a9fb`** — the newest SHA that changed anything the build contains, and the one CI ran on |
+| Branch head | may sit ahead of it by **documents only**. The workflow's `paths` filter skips `ios/**/*.md` and everything outside `ios/`, so a documents commit produces no run and needs none. Self-check: `git diff --stat 6fc8884..HEAD -- ios/` must be empty |
 | Base | `origin/main` = `edf40c1086c9ea659981dd428f4e13174566e7ca` |
 | Relationship | The branch is a **strict descendant** of `main`; 7 commits ahead, 0 behind, no divergence |
 | Scope vs `main` | 63 files, +5305 / −21. 12 under `ios/`, the rest tooling and documents |
