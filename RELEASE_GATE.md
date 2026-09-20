@@ -36,12 +36,12 @@ release gets built from something nobody tested.** They are:
 
 | | SHA | What it is |
 |---|---|---|
-| **Last `ios/` source commit** | `141e3a0c2ae07b1e986ae893348318ffda2d6246` | the newest commit that changed anything the built app contains |
-| **CI-tested revision** | `6fc88849468b05434a93637ac1d6fba02e18a9fb` | the revision run [`35477904737`](https://github.com/brax1227/Stacked-Wins/actions/runs/35477904737) built and tested |
+| **Last `ios/` source commit** | `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` | the newest commit that changed anything under `ios/` (tests only — see §1.2) |
+| **CI-tested revision** | `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` | the revision run [`35535956954`](https://github.com/brax1227/Stacked-Wins/actions/runs/35535956954) built and tested — the same SHA, so the two coincide again |
 | **Proposed merge / release tip** | the **branch tip**, which moves every time a commit lands | what a merge actually puts on `main`, and therefore what a release is built from |
 
 The tip carries the same `ios/` source as the CI-tested revision while
-`git diff --stat 6fc8884..HEAD -- ios/` is empty. **That supports source
+`git diff --stat e5ecdea..HEAD -- ios/` is empty. **That supports source
 equivalence and nothing more** — two runs of the same source do not produce
 identical binaries, because the runner image, the Xcode toolchain, the build
 number and the signing identity all differ between runs. No claim anywhere in
@@ -51,11 +51,11 @@ this document is about binaries.
 
 | Merge method | `main` becomes | Before any upload |
 |---|---|---|
-| Fast-forward (possible here, no divergence) | **the branch tip** — *not* `6fc8884` | a green run whose head SHA **is that tip** |
+| Fast-forward (possible here, no divergence) | **the branch tip** — *not* whichever revision CI last ran on | a green run whose head SHA **is that tip** |
 | Merge commit (GitHub's default button) | a **new** SHA that has never existed anywhere | a run on `main` after merging |
 | Squash or rebase | a **new** SHA, and the commit rows below stop matching it | a run on `main`, and this ledger rebuilt |
 
-No method lets the run on `6fc8884` stand in for the merged SHA. The release
+No method lets a run on an earlier revision stand in for the merged SHA. The release
 must name the SHA it was built from, and that SHA must have its own green run.
 
 While PR #23 is open, every push re-runs `compile-check` — a pull-request
@@ -77,16 +77,17 @@ stale as soon as another commit lands — which is the point of the rule above.*
 | `c52b7dc` | -04: offline operator scorecard; TRIAL.md interpretations corrected | No | — | covered by the run below |
 | `31f968a` | -04: SHA substitution in this file, nothing else | No | [`35476317137`](https://github.com/brax1227/Stacked-Wins/actions/runs/35476317137) | success, 146 tests; both release jobs **skipped** |
 | `141e3a0` | -04 correction: the as-of cutoff, in the scorecard **and** in `TrialReport` | Yes | — | covered by the run below |
-| **`6fc8884`** | -04: SHA substitution in this file, nothing else | No | [**`35477904737`**](https://github.com/brax1227/Stacked-Wins/actions/runs/35477904737) | **success, 150 tests, `preflight` and `testflight` skipped** |
+| `6fc8884` | -04: SHA substitution in this file, nothing else | No | [`35477904737`](https://github.com/brax1227/Stacked-Wins/actions/runs/35477904737) | success, 150 tests; both release jobs skipped |
+| **`e5ecdea`** | -06: two tests for the delete path; TRIAL.md records the variant as observed. **Tests and prose only — no app behaviour changed** | Yes (`StackedWinsTests` only) | [**`35535956954`**](https://github.com/brax1227/Stacked-Wins/actions/runs/35535956954) | **success, 152 tests, 0 failures, `preflight` and `testflight` skipped** |
 
-**The CI match:** run `35477904737`, head SHA
-`6fc88849468b05434a93637ac1d6fba02e18a9fb` — that revision exactly, not an
-ancestor of it. `compile-check` succeeded (150 executed, 0 failures);
+**The CI match:** run `35535956954`, head SHA
+`e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` — that revision exactly, not an
+ancestor of it. `compile-check` succeeded (152 executed, 0 failures);
 `preflight` and `testflight` were skipped, so no credential touched that run.
 It is evidence about the source at that revision, not about the merged SHA and
 not about any binary.
 
-Off-CI, on this Linux session: 125 XCTest cases in the Foundation-only slice,
+Off-CI, on this Linux session: 127 XCTest cases in the Foundation-only slice,
 53 Node tests and `demo.mjs` for the scorecard. Those are a faster inner loop,
 not a substitute — the macOS run above is the check that counts.
 
@@ -97,10 +98,12 @@ not a substitute — the macOS run above is the check that counts.
 | `14331e06` | Codex | accepted (-02 findings closed) |
 | `b5045d9` | Codex | **accepted** — -03 corrections confirmed |
 | `141e3a0` | Codex (PM, STACKED-20260920-05) | **accepted** — as-of cutoff, verified independently with 53 Node tests, and run `35477904737` verified independently |
-| Everything after `141e3a0` | — | documents and SHA substitution; nothing under `ios/` |
+| `e5ecdea` | — | **awaiting review.** Two tests and a rubric change, authorised as routine under STACKED-20260920-06. No app source changed: `git diff 141e3a0..e5ecdea -- ios/StackedWins/StackedWins/` is empty |
+| Everything else after `141e3a0` | — | documents and SHA substitution; nothing under `ios/` |
 
-**Every commit on the candidate that touches `ios/` has been reviewed and
-accepted.** No code review is outstanding.
+**Every commit that changes the app's own source has been reviewed and
+accepted.** `e5ecdea` adds test code and rubric prose on top; nothing under
+`ios/StackedWins/StackedWins/` has changed since `141e3a0`.
 
 ## 1.4 What has been uploaded — which is not the same as what Apple holds now
 
@@ -175,6 +178,7 @@ and to be exact about the short list that it cannot.
 | Nothing dated after today is evidence today | `testADayDatedAfterTodayIsNotAReturn`, `testTodayCountsAndTomorrowDoesNot`, `testAFutureDayIsNotEvidenceOfStarting` |
 | A plan never becomes an action | `testSelectingAFirstStepWithoutStartingIsNotEvidence`, `testNoAmountOfPlanningEverBecomesEvidence` |
 | The stored file holds dates and counts and nothing else | `testTheFileHoldsDatesAndCountsAndNothingElse` |
+| Deleting the record removes the file, leaves the next report empty, and **does not touch the stack** | `testDeletingTheRecordRemovesItAndLeavesTheStackAlone`, `testDeletingWhenThereIsNothingToDeleteIsFine` — real files on disk, and confirmed to fail if `reset()` removes the folder instead of the file |
 | The timebox and the openers: text produced, length caps, refusal to re-wrap | 19 `ManualFirstStepTests` |
 | A one-piece split replaces the card instead of adding to the pile | `LocalStackStoreTests` |
 
@@ -274,7 +278,11 @@ is worth *noticing*, and none of it gates the trial.
    **unknown** state ("planned a step, no evidence they did it"), not "started".
 4. Mark a card done → it reads **started**.
 5. **Delete** on that screen removes the record and **leaves the stack
-   untouched** — count the cards before and after.
+   untouched** — count the cards before and after. The removal itself and the
+   stack's survival are now unit-tested (§2.1), so what this check adds is the
+   button being wired to it. Expect the screen to show an **empty JSON
+   skeleton** rather than "Nothing recorded yet." afterwards — known, carries
+   no dates or counts, and is a product decision rather than a failed check.
 6. "Too big" → **"Just 5 minutes"** and the opener chips are present. On a phone
    without Apple Intelligence, "Suggest steps" is **absent**, not
    present-and-failing.
