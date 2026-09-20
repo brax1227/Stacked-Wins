@@ -322,9 +322,11 @@ Two rules that hold whatever the counts say:
 **Correcting an earlier version of this document, which said the trial runs on
 TestFlight builds that already exist. It does not.**
 
-The newest build on TestFlight is **1.3.0 (75)**, from `da1444f4`, uploaded
-2026-09-10. It contains none of this: no manual fallback, **no measurement at
-all**, no Trial data screen. A trial run on it would produce zero activation
+The newest build **uploaded** to TestFlight is **1.3.0 (75)**, from `da1444f4`,
+on 2026-09-10 — whether Apple still holds it as installable is a separate
+question nobody has checked (see RELEASE_GATE.md §1.4). Either way it contains
+none of this: no manual fallback, **no measurement at all**, no Trial data
+screen. A trial run on it would produce zero activation
 records, and testers whose phones lack Apple Intelligence — exactly the people
 the fallback was built for — would still get an empty box.
 
