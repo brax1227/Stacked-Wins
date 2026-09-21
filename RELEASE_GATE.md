@@ -158,6 +158,51 @@ Why the build-number error mattered: the next upload's build number is the
 workflow run number, and the preflight guard compares versions. Planning
 against "68" would have understated what is already on App Store Connect.
 
+## 1.6 Who an upload reaches — from existing evidence, not assumption
+
+Approval A was written as "install it on the author's own phone". That is a
+claim about **Apple's distribution settings**, which the workflow does not
+control: the `testflight` job uploads and stops — it never assigns a group.
+What happens next is configured in App Store Connect.
+
+The last `builds` report is the evidence. Run
+[`34414134376`](https://github.com/brax1227/Stacked-Wins/actions/runs/34414134376),
+**2026-09-09 22:50 UTC**, read-only against Apple:
+
+```
+Tester groups
+  - Solo  [internal, new builds offered to it automatically]
+    testers in 'Solo': 1
+      - (the author's own Apple ID)  [EMAIL, INSTALLED]
+
+Builds, newest first
+  - build 68: VALID, internal: IN_BETA_TESTING, in: Solo
+  - build 62, 38, 2, 1: the same
+```
+
+| What that shows | |
+|---|---|
+| Groups | **one**, `Solo`, internal. No external group existed |
+| Members | **one**, the author |
+| Automatic distribution | **ON** (`hasAccessToAllBuilds`). Every build from 1 to 68 landed `in: Solo` with no manual step |
+
+So an upload is **not inert**: once Apple finishes processing, the build is
+offered to everyone in `Solo` without anyone dispatching `distribute`. On the
+evidence above that is one person, the author — which is what Approval A
+assumed.
+
+**But this is a snapshot from 2026-09-09, a day before build 75, and nothing
+has read Apple's state since.** Group membership is edited in App Store
+Connect, not in this repository, so no change would leave a trace in git.
+**There is therefore no guarantee that the group is still author-only
+today.** If anyone has been added since, Approval A hands them the build
+automatically and silently.
+
+The check costs one read-only run: **dispatch `builds` before `testflight`,
+not only after.** The report mode issues only GETs and changes nothing on
+Apple's side, but it is still a workflow dispatch using the signing key, so it
+needs the same authorisation and is not something I can run.
+
 ---
 
 # 2. Evidence: covered versus genuinely missing
@@ -216,7 +261,7 @@ different decisions** being treated as one:
 
 | | Decision | Risk | Gated on |
 |---|---|---|---|
-| **A** | Produce a build and install it **on the author's own phone** | Internal only. No outreach, no external tester, no App Store submission. The author's own device is already excluded from trial totals by `founder: true` and the pre-trial rule | review complete (it is) + merged SHA + green CI on that SHA |
+| **A** | Produce a build, which Apple then **offers automatically to everyone in the `Solo` group** (one tester as of 2026-09-09 — the author; **not guaranteed today**, see §1.6) | No outreach, no external tester, no App Store submission. The author's own device is already excluded from trial totals by `founder: true` and the pre-trial rule. It also **creates signing material in the Apple Developer account** — §3.5 | review complete (it is) + merged SHA + green CI on that SHA |
 | **B** | **Start the trial** — recruit and hand the build to real people | This is the irreversible one: other people's time and attention | everything in §3.3 actually observed on a device |
 
 Approval A buys the evidence that Approval B needs. Collapsing them is what
@@ -247,8 +292,9 @@ configuration — and it is visible on the same screen at the same moment.)
 | 2 | Merge PR #23 | **Braxton** | nothing |
 | 2b | **Confirm a green run whose head SHA is the SHA now on `main`.** A fast-forward moves `main` to the branch tip, and a merge commit, squash or rebase creates a SHA that has never been built — no earlier run substitutes for either | **Braxton** | 2 |
 | 3 | Decide the version. `1.3.0` has been uploaded, so the next build must not go *below* it. Equal is allowed — the preflight guard only fails a **strictly lower** version, and TestFlight offers a higher build of the same version — but **1.4.0 is the better choice**, so a tester's export can be traced to a build by version alone | **Braxton** | 2 |
-| 4 | **Approval A**, then dispatch `testflight` from `main`. Build number will be the run number, which must exceed 75 (it will: runs only go up) | **Braxton** — the implementer does not dispatch | 2b, 3 |
-| 5 | `builds` run to read Apple's actual answer: processing outcome, and which groups hold the build. **A green upload job is not this** — it says `altool` returned success, nothing about what App Store Connect then did with it | Braxton | 4 |
+| 3b | **`builds` run *before* the upload.** It reads who is in `Solo` today, which is what decides whether Approval A really is author-only (§1.6). Read-only against Apple; still a dispatch with the signing key, so still yours | **Braxton** | 2b |
+| 4 | **Approval A**, then dispatch `testflight` from `main`. Build number will be the run number, which must exceed 75 (it will: runs only go up) | **Braxton** — the implementer does not dispatch | 2b, 3, 3b |
+| 5 | `builds` run **again**, to read Apple's answer about the new build: processing outcome, and which groups hold it. **A green upload job is not this** — it says `altool` returned success, nothing about what App Store Connect then did with it | Braxton | 4 |
 | 6 | Install on the author's own phone and work through §3.4 | Braxton | 5 |
 | 7 | Record the author's own device as excluded, with its `firstOpen` | Braxton | 6 |
 | 8 | **Approval B**, then recruit | **Braxton** | 6 passing |
@@ -296,19 +342,117 @@ is worth *noticing*, and none of it gates the trial.
 A check is passed only when someone has actually watched it happen on a phone,
 and the build it happened on is written down beside it.
 
-## 3.5 Approvals, in full
+## 3.5 Approvals, in full — and what Approval A really authorises
 
 Exactly four decisions are a human's, and none of them are mine:
 
 | Approval | What it authorises |
 |---|---|
-| Merge PR #23 | the candidate becomes the release SHA |
+| Merge PR #23 | the candidate becomes the release SHA. Touches nothing outside GitHub |
 | Version choice | what testers see, and what App Store Connect accepts |
-| **A** — dispatch `testflight` | a build exists and is installable. Internal only |
+| **A** — dispatch `testflight` | a build exists, is signed, is uploaded, **and is offered to the `Solo` group automatically**. See below |
 | **B** — begin the trial | real people are asked for their time |
 
-Signing, credentials, account settings and any App Store *submission* are
-outside all four and are not part of this trial.
+**Correcting an earlier version of this page, which said signing, credentials
+and account settings were "outside all four".** They are not outside Approval
+A — they *are* Approval A. `testflight` runs:
+
+```
+xcodebuild archive … -allowProvisioningUpdates \
+  -authenticationKeyPath/-KeyID/-IssuerID …  DEVELOPMENT_TEAM=$APPLE_TEAM_ID
+```
+
+with `CODE_SIGN_STYLE: Automatic`. So approving that dispatch authorises, in
+one action:
+
+| Effect | Where it lands |
+|---|---|
+| The App Store Connect API key is written to a GitHub-hosted runner | `~/.appstoreconnect/private_keys`, `chmod 600`, removed by a step that runs `if: always()` |
+| Xcode **creates and downloads a distribution certificate and an App Store provisioning profile if the account doesn't already have usable ones** | the Apple Developer account, permanently, until someone revokes them |
+| A signed `.ipa` is uploaded to App Store Connect and gets build number = the workflow run number | App Store Connect, not revocable — a build number is spent |
+| Apple offers the processed build to every internal group with automatic distribution on | today that is `Solo`; see §1.6 |
+
+The one thing genuinely outside all four is **App Store submission** — no
+review, no public release, and nothing in this workflow does it.
+
+Certificates and profiles accumulate in the account and Apple caps how many
+may exist at once. Nothing here is near that cap today; it is the failure mode
+to recognise if a future archive fails at signing rather than at build.
+
+---
+
+# 4. The proposal
+
+One concrete thing to approve or refuse, rather than a space of options.
+
+## 4.1 Exactly what is proposed
+
+| | |
+|---|---|
+| **Candidate** | the branch tip of `claude/visualize-task-list-0kzjhk` (PR #23). Its `ios/` source is `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1`, green on run `35535956954`, 152 tests |
+| **Base** | `main` = `edf40c1086c9ea659981dd428f4e13174566e7ca` |
+| **Merge method** | **fast-forward** — available (no divergence), and the only method that lands a SHA CI has already built |
+| **Version** | **`1.4.0`** in `ios/project.yml`. A recommendation, not homework: one line, `MARKETING_VERSION: "1.3.0"` → `"1.4.0"` |
+| **Build number** | not chosen by anyone — it is the workflow run number, which will exceed 75 on its own |
+
+**Why 1.4.0 rather than staying on 1.3.0.** The preflight guard only rejects a
+version *strictly below* what App Store Connect holds, and TestFlight does
+offer a higher build of the same version, so `1.3.0 (76+)` would work. It
+should still change, because the trial's whole discipline is tracing a record
+to the code that produced it: a tester's export is matched to a build by what
+they can see in TestFlight, and "1.3.0" would name both the measurement build
+and the one with no measurement in it at all. `1.4.0` makes the two
+distinguishable from the tester's screen alone. Minor rather than patch
+because this adds a feature — the fallback, the Trial data screen — rather
+than fixing one.
+
+## 4.2 The decision boundary: merge-only versus upload
+
+These are separate decisions and can be taken days apart. **Merging does not
+start anything.**
+
+| | Merge only | Later: upload |
+|---|---|---|
+| What runs | `compile-check` on `main` — simulator, no signing, no credentials | `preflight` then `testflight` |
+| Reaches Apple | **nothing** | key on a runner, signing material created, build uploaded |
+| Reversible | yes — `main` can be reverted, and nothing external has happened | **no** — a build number is spent and the upload cannot be recalled |
+| Who sees it | nobody | everyone in `Solo`, automatically (§1.6) |
+| Cost | none | none in money; one unrecallable artefact in Apple's account |
+
+So merge-only is a safe, reversible step that makes the candidate the release
+SHA and leaves every Apple-facing decision open. There is no deadline pressure
+to pair it with an upload.
+
+## 4.3 What can trigger an upload, so it can't happen by accident
+
+The `testflight` job runs on **exactly two** triggers:
+
+| Trigger | Notes |
+|---|---|
+| `workflow_dispatch` with `job: testflight` | the deliberate path. The dispatch default is `compile-check`, so a stray click ships nothing |
+| **a push of a tag matching `ios-v*`** | ⚠️ this one needs saying out loud: pushing such a tag runs `preflight` **and** `testflight` with no further confirmation. Do not tag the merge commit unless an upload is intended |
+
+Nothing else can. A merge to `main`, a branch push, or a PR triggers
+`compile-check` only, and on PRs it runs without secrets.
+
+## 4.4 Effects that follow automatically once the upload is approved
+
+Neither of these needs a further action, and neither is undoable:
+
+1. **Signing.** `-allowProvisioningUpdates` lets Xcode create and download a
+   distribution certificate and an App Store provisioning profile in the Apple
+   Developer account if usable ones aren't already there (§3.5).
+2. **Distribution.** Apple offers the processed build to every internal group
+   with automatic distribution on. As of 2026-09-09 that is `Solo`, one
+   member, the author — **unverified for today**, which is why §3.3 step 3b
+   reads the group *before* the upload rather than after (§1.6).
+
+## 4.5 What this proposal is not
+
+It is not a claim that the build works on a phone. No device evidence exists
+(§2.2). It is not a request to recruit anyone — that is Approval B, after the
+eight checks in §3.4. And it is not a version bump, a merge or a dispatch: all
+three remain unperformed.
 
 ---
 
