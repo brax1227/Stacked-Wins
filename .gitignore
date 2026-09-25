@@ -64,3 +64,6 @@ coverage/
 # Python bytecode from ios/scripts
 __pycache__/
 *.pyc
+
+# Personal Claude Code overrides; the shared config is .claude/settings.json
+.claude/settings.local.json
