@@ -36,12 +36,12 @@ release gets built from something nobody tested.** They are:
 
 | | SHA | What it is |
 |---|---|---|
-| **Last `ios/` source commit** | `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` | the newest commit that changed anything under `ios/` (tests only — see §1.2) |
-| **CI-tested revision** | `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` | the revision run [`35535956954`](https://github.com/brax1227/Stacked-Wins/actions/runs/35535956954) built and tested — the same SHA, so the two coincide again |
+| **Last `ios/` source commit** | the version bump to **1.4.0** on top of `a7e766e` | `a7e766e` is the last commit that changed app *code*; the bump changes only `MARKETING_VERSION` |
+| **CI-tested revision** | the branch tip, read from its own run before merging — not assumed from an earlier one (§1.1 rule) | recorded in the merge commit and the release report |
 | **Proposed merge / release tip** | the **branch tip**, which moves every time a commit lands | what a merge actually puts on `main`, and therefore what a release is built from |
 
 The tip carries the same `ios/` source as the CI-tested revision while
-`git diff --stat e5ecdea..HEAD -- ios/` is empty. **That supports source
+nothing under `ios/` has changed since the revision CI ran on. **That supports source
 equivalence and nothing more** — two runs of the same source do not produce
 identical binaries, because the runner image, the Xcode toolchain, the build
 number and the signing identity all differ between runs. No claim anywhere in
@@ -87,7 +87,7 @@ ancestor of it. `compile-check` succeeded (152 executed, 0 failures);
 It is evidence about the source at that revision, not about the merged SHA and
 not about any binary.
 
-Off-CI, on this Linux session: 127 XCTest cases in the Foundation-only slice,
+Off-CI: 152 XCTest cases in the Foundation-only slice via `.claude/hooks/swift-test.sh` (installed by the SessionStart hook; the registry is generated, so a new test cannot be silently skipped),
 53 Node tests and `demo.mjs` for the scorecard. Those are a faster inner loop,
 not a substitute — the macOS run above is the check that counts.
 
@@ -99,11 +99,16 @@ not a substitute — the macOS run above is the check that counts.
 | `b5045d9` | Codex | **accepted** — -03 corrections confirmed |
 | `141e3a0` | Codex (PM, STACKED-20260920-05) | **accepted** — as-of cutoff, verified independently with 53 Node tests, and run `35477904737` verified independently |
 | `e5ecdea` | — | **awaiting review.** Two tests and a rubric change, authorised as routine under STACKED-20260920-06. No app source changed: `git diff 141e3a0..e5ecdea -- ios/StackedWins/StackedWins/` is empty |
+| `de19fbb` | — | dev tooling only (`.claude/`); nothing ships |
+| `a7e766e` | — | **not reviewed** — empty-record export fix; see below |
 | Everything else after `141e3a0` | — | documents and SHA substitution; nothing under `ios/` |
 
-**Every commit that changes the app's own source has been reviewed and
-accepted.** `e5ecdea` adds test code and rubric prose on top; nothing under
-`ios/StackedWins/StackedWins/` has changed since `141e3a0`.
+**Not every app-source commit has been reviewed.** `a7e766e` changes
+`ActivationLog.exportJSON()` — a one-line guard so an empty record exports
+nothing — and was authorised for merge by the owner on 2026-09-26 without a Codex
+pass. Its evidence is its own two tests, a negative control that fails them
+with the guard removed, and CI. Everything up to `141e3a0` was reviewed and
+accepted.
 
 ## 1.4 What has been uploaded — which is not the same as what Apple holds now
 
@@ -191,8 +196,14 @@ offered to everyone in `Solo` without anyone dispatching `distribute`. On the
 evidence above that is one person, the author — which is what Approval A
 assumed.
 
-**But this is a snapshot from 2026-09-09, a day before build 75, and nothing
-has read Apple's state since.** Group membership is edited in App Store
+**Re-checked 2026-09-26** by `builds` run
+[`36203951190`](https://github.com/brax1227/Stacked-Wins/actions/runs/36203951190),
+read-only: still one group, `Solo`, automatic distribution on, **one tester —
+the author, installed**. Build 75 still `VALID`. So at the time of the 1.4.0
+upload, author-only is a verified fact, not an assumption.
+
+The earlier caution still applies to any *later* upload: **the 2026-09-09
+snapshot was taken a day before build 75, and a snapshot goes stale.** Group membership is edited in App Store
 Connect, not in this repository, so no change would leave a trace in git.
 **There is therefore no guarantee that the group is still author-only
 today.** If anyone has been added since, Approval A hands them the build
@@ -326,9 +337,9 @@ is worth *noticing*, and none of it gates the trial.
 5. **Delete** on that screen removes the record and **leaves the stack
    untouched** — count the cards before and after. The removal itself and the
    stack's survival are now unit-tested (§2.1), so what this check adds is the
-   button being wired to it. Expect the screen to show an **empty JSON
-   skeleton** rather than "Nothing recorded yet." afterwards — known, carries
-   no dates or counts, and is a product decision rather than a failed check.
+   button being wired to it. Afterwards the screen should read **"Nothing
+   recorded yet."** with Copy and Delete greyed out (fixed in `a7e766e`; before
+   it showed an empty JSON block).
 6. "Too big" → **"Just 5 minutes"** and the opener chips are present. On a phone
    without Apple Intelligence, "Suggest steps" is **absent**, not
    present-and-failing.
@@ -462,7 +473,11 @@ three remain unperformed.
 |---|---|
 | Implementation, tests, this ledger, the offline scorecard | Claude |
 | Code review, approval of the work | Codex |
-| Merge, version bump, dispatch, device validation, recruiting, tallying real exports | **A human — Braxton** |
+| Deciding to merge, bump, dispatch, recruit | **Braxton** |
+| Device validation, recruiting, tallying real exports | **Braxton** |
 
-The implementer proposing a release and the implementer performing it are
-different things. Everything above stops at "proposed".
+This describes who has been doing each step, not a rule about who may. The
+mechanics of a merge or a dispatch can be carried out by anyone Braxton
+authorises — on 2026-09-26 he authorised Claude to merge PR #23 and upload to
+TestFlight. The decisions stay his; what a decision needs before it is taken
+is §3 and §4.
