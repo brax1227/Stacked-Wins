@@ -1,0 +1,38 @@
+{
+  "trialStart": "2026-09-20",
+  "asOf": "2026-11-01",
+  "participants": {
+    "day13": {
+      "exports": [
+        "synthetic-day13.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "day14": {
+      "exports": [
+        "synthetic-day14.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "day6": {
+      "exports": [
+        "synthetic-day6.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "stillOpen": {
+      "exports": [
+        "synthetic-open-window.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    }
+  }
+}

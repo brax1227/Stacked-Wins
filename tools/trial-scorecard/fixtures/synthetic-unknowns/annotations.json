@@ -1,0 +1,63 @@
+{
+  "trialStart": "2026-09-20",
+  "asOf": "2026-11-01",
+  "participants": {
+    "asked": {
+      "exports": [
+        "synthetic-asked.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "notAsked": {
+      "exports": [
+        "synthetic-not-asked.json"
+      ]
+    },
+    "unattributed": {
+      "exports": [
+        "synthetic-unattributed.json"
+      ],
+      "reportedHelp": "yes"
+    },
+    "simulator": {
+      "exports": [
+        "synthetic-simulator.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "founder": {
+      "exports": [
+        "synthetic-founder.json"
+      ],
+      "founder": true,
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "legacyUnconfirmed": {
+      "exports": [
+        "synthetic-no-environment.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "legacyConfirmed": {
+      "exports": [
+        "synthetic-confirmed-legacy.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20",
+      "eligibilityConfirmed": {
+        "by": "operator",
+        "on": "2026-10-21",
+        "basis": "known tester, confirmed release build on their own phone"
+      }
+    }
+  }
+}

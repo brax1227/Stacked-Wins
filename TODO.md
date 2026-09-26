@@ -116,6 +116,14 @@
       Intelligence off, which reports as `capabilities.splitAssist == false` and
       hides the button — the same path a phone has always taken. The server
       assist still exists for a server-backed stack.
+- [x] **A no-model path from "too big" to one small step.** A timebox ("spend 5
+      minutes on …", one tap, zero typing) and physical openers ("find the ",
+      "open ") that turn a blank box into a blank with a beginning. This is the
+      only help a phone without Apple Intelligence gets, and it needed to be
+      good on its own terms rather than a degraded version of the model path.
+- [x] **Local activation measurement.** `ActivationLog` + `TrialReport`: dates
+      and counts on the device, inspectable and deletable by the user, with
+      fixtures structurally excluded from trial totals. Rubric in TRIAL.md.
 - [ ] **Tune the split assist.** It runs at `output_config.effort: 'low'` — a
       deliberate per-route choice for a short, tightly-specified extraction that
       may be hit many times a sitting. Raise it if suggestions come back shallow.

@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "source": "real",
+  "firstOpen": "2026-10-01",
+  "days": {
+    "2026-10-01": {
+      "opens": 8,
+      "captures": 9,
+      "brokenDown": 1,
+      "started": 1
+    },
+    "2026-10-10": {
+      "opens": 7,
+      "captures": 0,
+      "brokenDown": 0,
+      "started": 0
+    }
+  }
+}

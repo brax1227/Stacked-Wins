@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var showSettings = false
     @State private var showSignIn = false
     @State private var showWins = false
+    @State private var showTrial = false
     @State private var checkedFirstOpen = false
 
     var body: some View {
@@ -51,6 +52,11 @@ struct RootView: View {
                                 showWins = true
                             } label: {
                                 Label("Wins", systemImage: "checkmark.circle")
+                            }
+                            Button {
+                                showTrial = true
+                            } label: {
+                                Label("Trial data", systemImage: "lock.doc")
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
@@ -93,6 +99,9 @@ struct RootView: View {
                 }
                 .sheet(isPresented: $showWins) {
                     WinsView()
+                }
+                .sheet(isPresented: $showTrial) {
+                    TrialView()
                 }
                 .task { await openTheDumpOnFirstUse() }
                 // stackedwins://add arrived, from a Shortcut, a Home Screen

@@ -64,6 +64,25 @@ Signing out returns to the phone's own stack, which is untouched.
 
 ## Breaking a card down
 
+Three ways to fill the box, in descending order of how much they ask of
+someone who is already stuck (`Views/BreakItUpSheet.swift`):
+
+1. **Just 5 minutes** — one tap wraps the card into "spend 5 minutes on …".
+   No typing, no model, no thinking about the task. Always smaller than what
+   it replaces. `ManualFirstStep.timebox`.
+2. **Openers** — physical stems ("find the ", "open ") you finish with one
+   word. `ManualFirstStep.openers`; tapping one appends without destroying
+   what you already typed.
+3. **Suggest steps** — the on-device model, on phones that have one.
+
+1 and 2 need nothing but a phone, and exist because the previous version gave
+a phone without Apple Intelligence an empty editor and the question "what's
+the smallest first piece?" — which is precisely what a frozen user cannot
+answer. All three only ever *fill the box*; the stack changes when the user
+taps **Break it up** and not before.
+
+
+
 "Too big" exists because a vague card is the one that freezes you — "clean"
 isn't a task, it's a mood. The button that offers first steps runs on the
 phone's own model (`Services/OnDeviceSplitAssist.swift`, Apple's
@@ -82,6 +101,27 @@ fake, because the model's output is unpredictable and what has to be
 predictable is what the app *does* with it — strip numbering, drop a piece
 that just restates the card, cap the count so the fix isn't its own pile, and
 write nothing until the user confirms.
+
+## Measurement
+
+`Services/ActivationLog.swift` records **dates and integers only** — opens,
+captures and actions per day — in the app's own folder. No task text, no ids,
+no times of day, no network, no analytics SDK. **⋯ → Trial data** shows the
+user the entire file, lets them copy it, and lets them delete it without
+touching their stack.
+
+`TrialReport` separates **intent from evidence**: breaking a card down
+(`brokenDown`) is the user editing a plan, marking one done (`started`) is the
+app seeing something finished, and the two are never summed. `startEvidence`
+is three-valued — `nothingYet`, `brokenDownOnly` (**unknown**, resolved by
+asking, not by scoring it a failure), `started`. It also gives *next-week
+return* (active 7–13 days after first open). The build picks its own `source` — a simulator or debug
+build writes a `fixture`, so our own runs cannot masquerade as participants —
+and `eligibility` is three-valued, because a record written before selection
+existed is `needsOperatorConfirmation` rather than being silently counted or
+silently discarded. Anything not eligible is excluded from trial totals — a fixture cannot be promoted to a user, and a
+user cannot be downgraded to a fixture. Definitions and the operator rubric
+live in [TRIAL.md](../TRIAL.md).
 
 ## Capture from outside the app
 

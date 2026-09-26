@@ -1,0 +1,483 @@
+# Release gate — trial build
+
+**The trial cannot start on any build that exists today.** Every change the
+rubric in [TRIAL.md](./TRIAL.md) depends on is unreleased and sits on a review
+branch. This page holds two things:
+
+1. **The ledger** — the immutable facts about what exists, verified against
+   GitHub's own records rather than remembered.
+2. **The readiness packet** — what is still missing, in the only order it can
+   actually happen, and who decides each step.
+
+**Nothing here has been executed.** No upload, no dispatch, no tag, no version
+change, no credential or account action. Every assignment through
+STACKED-20260920-05 forbids all of them, and this document exists so the steps
+are specified rather than improvised later.
+
+---
+
+# 1. The ledger
+
+Append-only. A row is a fact with a source; when a row turns out to be wrong it
+is **corrected in the open** (see *Corrections*) rather than edited away,
+because a record you can silently rewrite is not evidence.
+
+## 1.1 The release candidate
+
+| | |
+|---|---|
+| Branch | `claude/visualize-task-list-0kzjhk` (PR #23, open, **not merged**) |
+| Base | `origin/main` = `edf40c1086c9ea659981dd428f4e13174566e7ca` |
+| Relationship | The branch is a **strict descendant** of `main` — ahead only, never behind, no divergence. Self-check: `git merge-base --is-ancestor origin/main HEAD` |
+| Scope vs `main` | 12 files under `ios/` changed; the rest is tooling and documents (`git diff --name-only origin/main..HEAD -- ios/`) |
+
+**Three different SHAs get called "the candidate", and conflating them is how a
+release gets built from something nobody tested.** They are:
+
+| | SHA | What it is |
+|---|---|---|
+| **Last `ios/` source commit** | the version bump to **1.4.0** on top of `a7e766e` | `a7e766e` is the last commit that changed app *code*; the bump changes only `MARKETING_VERSION` |
+| **CI-tested revision** | the branch tip, read from its own run before merging — not assumed from an earlier one (§1.1 rule) | recorded in the merge commit and the release report |
+| **Proposed merge / release tip** | the **branch tip**, which moves every time a commit lands | what a merge actually puts on `main`, and therefore what a release is built from |
+
+The tip carries the same `ios/` source as the CI-tested revision while
+nothing under `ios/` has changed since the revision CI ran on. **That supports source
+equivalence and nothing more** — two runs of the same source do not produce
+identical binaries, because the runner image, the Xcode toolchain, the build
+number and the signing identity all differ between runs. No claim anywhere in
+this document is about binaries.
+
+**What a merge moves `main` to:**
+
+| Merge method | `main` becomes | Before any upload |
+|---|---|---|
+| Fast-forward (possible here, no divergence) | **the branch tip** — *not* whichever revision CI last ran on | a green run whose head SHA **is that tip** |
+| Merge commit (GitHub's default button) | a **new** SHA that has never existed anywhere | a run on `main` after merging |
+| Squash or rebase | a **new** SHA, and the commit rows below stop matching it | a run on `main`, and this ledger rebuilt |
+
+No method lets a run on an earlier revision stand in for the merged SHA. The release
+must name the SHA it was built from, and that SHA must have its own green run.
+
+While PR #23 is open, every push re-runs `compile-check` — a pull-request
+`paths` filter tests the **whole PR diff**, not the pushed commit — so the tip
+usually has a run of its own. Read it, don't assume it: a run can also be
+`cancelled` when the next push supersedes it (run `35496108407` was), and a
+cancelled run is not evidence.
+
+*Observed 2026-09-20: run [`35496133864`](https://github.com/brax1227/Stacked-Wins/actions/runs/35496133864) succeeded with head SHA `b1ed34d`, the tip at that moment. This line is
+stale as soon as another commit lands — which is the point of the rule above.*
+
+## 1.2 Commits on the candidate, and what verified each
+
+| Commit | What it is | Touches `ios/` | CI run | Result |
+|---|---|---|---|---|
+| `8be46e1` | -01: no-model path from "too big" to one small step, plus local measurement | Yes | [`35402450442`](https://github.com/brax1227/Stacked-Wins/actions/runs/35402450442) | success, 123 tests |
+| `14331e0` | -02: a plan is not an action — intent and evidence separated | Yes | [`35407659551`](https://github.com/brax1227/Stacked-Wins/actions/runs/35407659551) | success, 133 tests |
+| `b5045d9` | -03: return window closes at day 14; the build picks its own source | Yes | [`35411722023`](https://github.com/brax1227/Stacked-Wins/actions/runs/35411722023) | success, 146 tests; `preflight` and `testflight` **skipped** |
+| `c52b7dc` | -04: offline operator scorecard; TRIAL.md interpretations corrected | No | — | covered by the run below |
+| `31f968a` | -04: SHA substitution in this file, nothing else | No | [`35476317137`](https://github.com/brax1227/Stacked-Wins/actions/runs/35476317137) | success, 146 tests; both release jobs **skipped** |
+| `141e3a0` | -04 correction: the as-of cutoff, in the scorecard **and** in `TrialReport` | Yes | — | covered by the run below |
+| `6fc8884` | -04: SHA substitution in this file, nothing else | No | [`35477904737`](https://github.com/brax1227/Stacked-Wins/actions/runs/35477904737) | success, 150 tests; both release jobs skipped |
+| **`e5ecdea`** | -06: two tests for the delete path; TRIAL.md records the variant as observed. **Tests and prose only — no app behaviour changed** | Yes (`StackedWinsTests` only) | [**`35535956954`**](https://github.com/brax1227/Stacked-Wins/actions/runs/35535956954) | **success, 152 tests, 0 failures, `preflight` and `testflight` skipped** |
+
+**The CI match:** run `35535956954`, head SHA
+`e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1` — that revision exactly, not an
+ancestor of it. `compile-check` succeeded (152 executed, 0 failures);
+`preflight` and `testflight` were skipped, so no credential touched that run.
+It is evidence about the source at that revision, not about the merged SHA and
+not about any binary.
+
+Off-CI: 152 XCTest cases in the Foundation-only slice via `.claude/hooks/swift-test.sh` (installed by the SessionStart hook; the registry is generated, so a new test cannot be silently skipped),
+53 Node tests and `demo.mjs` for the scorecard. Those are a faster inner loop,
+not a substitute — the macOS run above is the check that counts.
+
+## 1.3 Review status
+
+| Reviewed | By | Outcome |
+|---|---|---|
+| `14331e06` | Codex | accepted (-02 findings closed) |
+| `b5045d9` | Codex | **accepted** — -03 corrections confirmed |
+| `141e3a0` | Codex (PM, STACKED-20260920-05) | **accepted** — as-of cutoff, verified independently with 53 Node tests, and run `35477904737` verified independently |
+| `e5ecdea` | — | **awaiting review.** Two tests and a rubric change, authorised as routine under STACKED-20260920-06. No app source changed: `git diff 141e3a0..e5ecdea -- ios/StackedWins/StackedWins/` is empty |
+| `de19fbb` | — | dev tooling only (`.claude/`); nothing ships |
+| `a7e766e` | — | **not reviewed** — empty-record export fix; see below |
+| Everything else after `141e3a0` | — | documents and SHA substitution; nothing under `ios/` |
+
+**Not every app-source commit has been reviewed.** `a7e766e` changes
+`ActivationLog.exportJSON()` — a one-line guard so an empty record exports
+nothing — and was authorised for merge by the owner on 2026-09-26 without a Codex
+pass. Its evidence is its own two tests, a negative control that fails them
+with the guard removed, and CI. Everything up to `141e3a0` was reviewed and
+accepted.
+
+## 1.4 What has been uploaded — which is not the same as what Apple holds now
+
+| | |
+|---|---|
+| Newest upload | **1.3.0 (75)** |
+| Built from | `da1444f4` (Merge #21) |
+| Uploaded | 2026-09-10, run [`34430246976`](https://github.com/brax1227/Stacked-Wins/actions/runs/34430246976) — `testflight` job success, artifact `StackedWins-ipa-75` |
+| Previous | 1.2.0 (68) from `dea9a7b4`, 2026-09-09, run `34412926638` |
+| Most recent dispatch of any kind | run 75. Nothing has been dispatched since |
+
+**A successful upload is not a state on Apple's side.** What run 34430246976
+proves is that `altool --upload-app` returned success on 2026-09-10 for a build
+numbered 75. Everything after that happens inside App Store Connect and is
+**unknown from here**:
+
+| Unknown | Why it can't be read from this session |
+|---|---|
+| Processing outcome — `VALID`, `PROCESSING`, `INVALID` | only App Store Connect knows; reading it means a `builds` dispatch, which is gated |
+| Whether the build is in a tester group | same |
+| Whether the 90-day beta window has expired | TestFlight builds expire; run 75 was over five months ago |
+| Whether any device actually has it installed | nothing observable from CI at all |
+
+Apple has rejected a request from this pipeline before (`renotify` returned
+`HTTP 422 — Cannot add internal group to a build`), so "the workflow went
+green" and "the build is where you think it is" are separate claims. Treat the
+row above as *an upload happened*, and check the rest with a `builds` run when
+one is authorised.
+
+**What 1.3.0 (75) contains:** the on-device "Too big" assist, capture by
+Siri/Shortcuts/URL, the card gestures, Wins.
+
+**What it does not contain:** the manual no-model fallback, **any measurement
+at all**, the Trial data screen. A trial run on it would produce **zero**
+activation records, and the "Just 5 minutes" fallback would not exist for
+testers whose phones lack Apple Intelligence — which is the population the
+fallback was built for.
+
+## 1.5 Corrections to earlier ledger entries
+
+| Was recorded | Actually | How it was checked |
+|---|---|---|
+| "Latest build on TestFlight: **1.3.0 (68)**, uploaded 2026-09-09 from `da1444f4`" | Two different uploads conflated. `da1444f4` produced **1.3.0 (75)** on **2026-09-10**; **(68)** was **1.2.0** from `dea9a7b4` on 2026-09-09 | The build number is `CURRENT_PROJECT_VERSION=${{ github.run_number }}`, so run 68 → build 68 and run 75 → build 75. `git show dea9a7b4:ios/project.yml` says `MARKETING_VERSION: "1.2.0"`; `da1444f4` says `1.3.0`. Run 75's job log names artifact `StackedWins-ipa-75` |
+| "Review closed at `14331e06`; `b5045d9` and later await review" | Stale. `b5045d9` and `141e3a0` have both been reviewed and accepted | STACKED-20260920-05, and the -03 assignment that closed `b5045d9`'s findings |
+| Gate ordering: device validation before an upload is proposed | **Impossible as written** for this project — see §3.1 | Nobody on the project has a Mac, and without one TestFlight is the only way onto a phone |
+| "Fast-forward → `6fc8884` unchanged, CI carries over, no re-run needed" | **Wrong.** A fast-forward advances `main` to the **branch tip**, not to the revision CI happened to run on. Whatever SHA lands on `main` needs its own green run — see §1.1 | The tip moves with every commit; `6fc8884` stopped being the tip the moment the next document commit landed |
+| "Doc-only pushes rebuild **byte-identical** app content" | Overclaimed. A clean `git diff -- ios/` supports **source equivalence** only. Runner image, toolchain, build number and signing all differ between runs, so two builds of one source are not the same binary | Nothing in this pipeline compares binaries, and nothing here needs to |
+| "What is actually **live** on TestFlight" | A successful upload workflow is not Apple's current state — processing outcome, group membership, expiry and installs are all unknown from here — see §1.4 | The `renotify` `HTTP 422` refusal is the standing proof that Apple's answer and the workflow's exit code are different things |
+| "Unit tests pass on **iOS 17+**" | They passed on one simulator runtime on the `macos-latest` image. 17.0 is the deployment target, not a tested matrix | §2.1 |
+
+Why the build-number error mattered: the next upload's build number is the
+workflow run number, and the preflight guard compares versions. Planning
+against "68" would have understated what is already on App Store Connect.
+
+## 1.6 Who an upload reaches — from existing evidence, not assumption
+
+Approval A was written as "install it on the author's own phone". That is a
+claim about **Apple's distribution settings**, which the workflow does not
+control: the `testflight` job uploads and stops — it never assigns a group.
+What happens next is configured in App Store Connect.
+
+The last `builds` report is the evidence. Run
+[`34414134376`](https://github.com/brax1227/Stacked-Wins/actions/runs/34414134376),
+**2026-09-09 22:50 UTC**, read-only against Apple:
+
+```
+Tester groups
+  - Solo  [internal, new builds offered to it automatically]
+    testers in 'Solo': 1
+      - (the author's own Apple ID)  [EMAIL, INSTALLED]
+
+Builds, newest first
+  - build 68: VALID, internal: IN_BETA_TESTING, in: Solo
+  - build 62, 38, 2, 1: the same
+```
+
+| What that shows | |
+|---|---|
+| Groups | **one**, `Solo`, internal. No external group existed |
+| Members | **one**, the author |
+| Automatic distribution | **ON** (`hasAccessToAllBuilds`). Every build from 1 to 68 landed `in: Solo` with no manual step |
+
+So an upload is **not inert**: once Apple finishes processing, the build is
+offered to everyone in `Solo` without anyone dispatching `distribute`. On the
+evidence above that is one person, the author — which is what Approval A
+assumed.
+
+**Re-checked 2026-09-26** by `builds` run
+[`36203951190`](https://github.com/brax1227/Stacked-Wins/actions/runs/36203951190),
+read-only: still one group, `Solo`, automatic distribution on, **one tester —
+the author, installed**. Build 75 still `VALID`. So at the time of the 1.4.0
+upload, author-only is a verified fact, not an assumption.
+
+The earlier caution still applies to any *later* upload: **the 2026-09-09
+snapshot was taken a day before build 75, and a snapshot goes stale.** Group membership is edited in App Store
+Connect, not in this repository, so no change would leave a trace in git.
+**There is therefore no guarantee that the group is still author-only
+today.** If anyone has been added since, Approval A hands them the build
+automatically and silently.
+
+The check costs one read-only run: **dispatch `builds` before `testflight`,
+not only after.** The report mode issues only GETs and changes nothing on
+Apple's side, but it is still a workflow dispatch using the signing key, so it
+needs the same authorisation and is not something I can run.
+
+---
+
+# 2. Evidence: covered versus genuinely missing
+
+The point of this section is to stop anyone re-testing what CI already proves,
+and to be exact about the short list that it cannot.
+
+## 2.1 Already evidenced — do not re-test by hand
+
+| Behaviour | Evidenced by |
+|---|---|
+| The app compiles, and its unit tests pass, on the runner's iPhone simulator (one iOS runtime on the `macos-latest` image — **not** every iOS 17+ device) | run `35477904737`, 150 tests |
+| The on-device model path genuinely compiled (not `#if`'d out) | the `#warning` guard in `OnDeviceSplitAssist` did not fire in that run |
+| A simulator build calls itself a **fixture** | `testTheRunningBuildSelectsItsOwnSourceHonestly`, asserted on the CI simulator itself |
+| The source/environment mapping, in all three directions | `testOnlyARealDeviceBuildProducesARealSource`, `testALogConstructedWithNoSourceArgumentStampsTheBuildsVerdict` |
+| A real record can't be downgraded; a fixture can't be promoted | `testARealRecordIsNotDowngradedByALaterFixtureWriter`, `testAFixtureRecordIsNotPromotedByALaterRealWriter` |
+| The return window's edges: days 6, 7, 13, 14, and across a DST change | six `testTheWindow…` cases |
+| Nothing dated after today is evidence today | `testADayDatedAfterTodayIsNotAReturn`, `testTodayCountsAndTomorrowDoesNot`, `testAFutureDayIsNotEvidenceOfStarting` |
+| A plan never becomes an action | `testSelectingAFirstStepWithoutStartingIsNotEvidence`, `testNoAmountOfPlanningEverBecomesEvidence` |
+| The stored file holds dates and counts and nothing else | `testTheFileHoldsDatesAndCountsAndNothingElse` |
+| Deleting the record removes the file, leaves the next report empty, and **does not touch the stack** | `testDeletingTheRecordRemovesItAndLeavesTheStackAlone`, `testDeletingWhenThereIsNothingToDeleteIsFine` — real files on disk, and confirmed to fail if `reset()` removes the folder instead of the file |
+| The timebox and the openers: text produced, length caps, refusal to re-wrap | 19 `ManualFirstStepTests` |
+| A one-piece split replaces the card instead of adding to the pile | `LocalStackStoreTests` |
+
+## 2.2 Genuinely missing, and only a device can supply it
+
+CI runs a **simulator**, and a simulator now deliberately writes `fixture`
+records — by design, which is exactly why it cannot validate the measurement
+path end to end.
+
+| Missing | Why CI can't have it |
+|---|---|
+| A build that stamps itself `real` and reads "counted as a real trial user" | requires **Release configuration on physical hardware**; see §3.2 |
+| The "Too big" sheet on a phone **without** Apple Intelligence | hardware capability, not simulatable |
+| The "Too big" sheet on a phone **with** Apple Intelligence, returning real steps | the model is not on a CI runner |
+| Gestures, haptics, the card leaving in the direction thrown | no touch input in `xcodebuild test` |
+| Siri phrase, Shortcut, and `stackedwins://add` from outside the app | needs the system to route it |
+| TestFlight install, tester group membership, the Update prompt | only exists after an upload |
+
+**No device-only behaviour has been observed by anyone. Nothing in this
+document claims it has.**
+
+---
+
+# 3. The readiness packet
+
+## 3.1 The sequencing defect in the previous version of this gate
+
+The previous gate required device validation **before** an upload could be
+proposed. With no Mac on the project, the only way to get a build onto a phone
+is TestFlight — so that ordering made the trial unstartable: validation waited
+on a build, and the build waited on validation.
+
+The fix is not to weaken the gate. It is to notice that there are **two
+different decisions** being treated as one:
+
+| | Decision | Risk | Gated on |
+|---|---|---|---|
+| **A** | Produce a build, which Apple then **offers automatically to everyone in the `Solo` group** (one tester as of 2026-09-09 — the author; **not guaranteed today**, see §1.6) | No outreach, no external tester, no App Store submission. The author's own device is already excluded from trial totals by `founder: true` and the pre-trial rule. It also **creates signing material in the Apple Developer account** — §3.5 | review complete (it is) + merged SHA + green CI on that SHA |
+| **B** | **Start the trial** — recruit and hand the build to real people | This is the irreversible one: other people's time and attention | everything in §3.3 actually observed on a device |
+
+Approval A buys the evidence that Approval B needs. Collapsing them is what
+made the old ordering circular.
+
+## 3.2 A finding that changes what "device validation" means
+
+The scheme's **Run** configuration is Debug and CI tests with
+`-configuration Debug`. `currentEnvironment()` resolves at compile time:
+simulator → `fixture`, `DEBUG` → `fixture`, otherwise → `real`.
+
+So **a Debug build on a real phone still writes `fixture` records.** Plugging a
+phone into Xcode and pressing Run does *not* validate the measurement path.
+Only a **Release-configuration build on hardware** can — which means either a
+TestFlight build, or Xcode with the scheme's Run configuration switched to
+Release. Every measurement check below must name which build it was run on, or
+it proves nothing.
+
+(If a Debug build on a device ever reads "counted as a real trial user", that
+is itself a finding — it would mean `DEBUG` is not defined in the Debug
+configuration — and it is visible on the same screen at the same moment.)
+
+## 3.3 The order, and who does each step
+
+| # | Step | Who | Blocked by |
+|---|---|---|---|
+| 1 | A reviewed candidate exists, with CI green on the reviewed source | — | **done**: §1.1–1.3 |
+| 2 | Merge PR #23 | **Braxton** | nothing |
+| 2b | **Confirm a green run whose head SHA is the SHA now on `main`.** A fast-forward moves `main` to the branch tip, and a merge commit, squash or rebase creates a SHA that has never been built — no earlier run substitutes for either | **Braxton** | 2 |
+| 3 | Decide the version. `1.3.0` has been uploaded, so the next build must not go *below* it. Equal is allowed — the preflight guard only fails a **strictly lower** version, and TestFlight offers a higher build of the same version — but **1.4.0 is the better choice**, so a tester's export can be traced to a build by version alone | **Braxton** | 2 |
+| 3b | **`builds` run *before* the upload.** It reads who is in `Solo` today, which is what decides whether Approval A really is author-only (§1.6). Read-only against Apple; still a dispatch with the signing key, so still yours | **Braxton** | 2b |
+| 4 | **Approval A**, then dispatch `testflight` from `main`. Build number will be the run number, which must exceed 75 (it will: runs only go up) | **Braxton** — the implementer does not dispatch | 2b, 3, 3b |
+| 5 | `builds` run **again**, to read Apple's answer about the new build: processing outcome, and which groups hold it. **A green upload job is not this** — it says `altool` returned success, nothing about what App Store Connect then did with it | Braxton | 4 |
+| 6 | Install on the author's own phone and work through §3.4 | Braxton | 5 |
+| 7 | Record the author's own device as excluded, with its `firstOpen` | Braxton | 6 |
+| 8 | **Approval B**, then recruit | **Braxton** | 6 passing |
+
+Steps 4 and 8 are the two gates. Everything before 4 is reversible; everything
+after 8 involves other people.
+
+If a Mac becomes available, steps 4–6 can be replaced by a local
+Release-configuration run onto the phone, which gets the same evidence with no
+upload at all. Strictly preferable when possible; not a blocker.
+
+## 3.4 The minimum device test plan
+
+Eight checks. This is the gating set — not a tour of the app. Each one is
+either measurement provenance or an invariant that would corrupt the trial if
+broken. Everything else (haptics, the throw animation, Siri, the Wins screen)
+is worth *noticing*, and none of it gates the trial.
+
+**On the TestFlight build (Release), the author's own phone:**
+
+1. ⋯ → **Trial data** reads **"counted as a real trial user"**. This is the one
+   check the whole measurement rubric rests on; if it reads "excluded", nothing
+   a tester sends can be counted.
+2. The raw JSON on that screen shows only `version`, `source`, `environment`,
+   `firstOpen`, `days` — and **no task text**.
+3. Break a card down without marking anything done → the screen reads the
+   **unknown** state ("planned a step, no evidence they did it"), not "started".
+4. Mark a card done → it reads **started**.
+5. **Delete** on that screen removes the record and **leaves the stack
+   untouched** — count the cards before and after. The removal itself and the
+   stack's survival are now unit-tested (§2.1), so what this check adds is the
+   button being wired to it. Afterwards the screen should read **"Nothing
+   recorded yet."** with Copy and Delete greyed out (fixed in `a7e766e`; before
+   it showed an empty JSON block).
+6. "Too big" → **"Just 5 minutes"** and the opener chips are present. On a phone
+   without Apple Intelligence, "Suggest steps" is **absent**, not
+   present-and-failing.
+7. Tapping "Just 5 minutes" fills the editor with `spend 5 minutes on <card>`,
+   **editable**; changing the number and confirming produces exactly the edited
+   text.
+8. **"Never mind" leaves the stack exactly as it was** — count the cards before
+   and after. This is the "never silently change user data" constraint, and it
+   is the one whose failure a user would never report.
+
+A check is passed only when someone has actually watched it happen on a phone,
+and the build it happened on is written down beside it.
+
+## 3.5 Approvals, in full — and what Approval A really authorises
+
+Exactly four decisions are a human's, and none of them are mine:
+
+| Approval | What it authorises |
+|---|---|
+| Merge PR #23 | the candidate becomes the release SHA. Touches nothing outside GitHub |
+| Version choice | what testers see, and what App Store Connect accepts |
+| **A** — dispatch `testflight` | a build exists, is signed, is uploaded, **and is offered to the `Solo` group automatically**. See below |
+| **B** — begin the trial | real people are asked for their time |
+
+**Correcting an earlier version of this page, which said signing, credentials
+and account settings were "outside all four".** They are not outside Approval
+A — they *are* Approval A. `testflight` runs:
+
+```
+xcodebuild archive … -allowProvisioningUpdates \
+  -authenticationKeyPath/-KeyID/-IssuerID …  DEVELOPMENT_TEAM=$APPLE_TEAM_ID
+```
+
+with `CODE_SIGN_STYLE: Automatic`. So approving that dispatch authorises, in
+one action:
+
+| Effect | Where it lands |
+|---|---|
+| The App Store Connect API key is written to a GitHub-hosted runner | `~/.appstoreconnect/private_keys`, `chmod 600`, removed by a step that runs `if: always()` |
+| Xcode **creates and downloads a distribution certificate and an App Store provisioning profile if the account doesn't already have usable ones** | the Apple Developer account, permanently, until someone revokes them |
+| A signed `.ipa` is uploaded to App Store Connect and gets build number = the workflow run number | App Store Connect, not revocable — a build number is spent |
+| Apple offers the processed build to every internal group with automatic distribution on | today that is `Solo`; see §1.6 |
+
+The one thing genuinely outside all four is **App Store submission** — no
+review, no public release, and nothing in this workflow does it.
+
+Certificates and profiles accumulate in the account and Apple caps how many
+may exist at once. Nothing here is near that cap today; it is the failure mode
+to recognise if a future archive fails at signing rather than at build.
+
+---
+
+# 4. The proposal
+
+One concrete thing to approve or refuse, rather than a space of options.
+
+## 4.1 Exactly what is proposed
+
+| | |
+|---|---|
+| **Candidate** | the branch tip of `claude/visualize-task-list-0kzjhk` (PR #23). Its `ios/` source is `e5ecdea8cf5a58381de88cbb5449769c2d3fa7f1`, green on run `35535956954`, 152 tests |
+| **Base** | `main` = `edf40c1086c9ea659981dd428f4e13174566e7ca` |
+| **Merge method** | **fast-forward** — available (no divergence), and the only method that lands a SHA CI has already built |
+| **Version** | **`1.4.0`** in `ios/project.yml`. A recommendation, not homework: one line, `MARKETING_VERSION: "1.3.0"` → `"1.4.0"` |
+| **Build number** | not chosen by anyone — it is the workflow run number, which will exceed 75 on its own |
+
+**Why 1.4.0 rather than staying on 1.3.0.** The preflight guard only rejects a
+version *strictly below* what App Store Connect holds, and TestFlight does
+offer a higher build of the same version, so `1.3.0 (76+)` would work. It
+should still change, because the trial's whole discipline is tracing a record
+to the code that produced it: a tester's export is matched to a build by what
+they can see in TestFlight, and "1.3.0" would name both the measurement build
+and the one with no measurement in it at all. `1.4.0` makes the two
+distinguishable from the tester's screen alone. Minor rather than patch
+because this adds a feature — the fallback, the Trial data screen — rather
+than fixing one.
+
+## 4.2 The decision boundary: merge-only versus upload
+
+These are separate decisions and can be taken days apart. **Merging does not
+start anything.**
+
+| | Merge only | Later: upload |
+|---|---|---|
+| What runs | `compile-check` on `main` — simulator, no signing, no credentials | `preflight` then `testflight` |
+| Reaches Apple | **nothing** | key on a runner, signing material created, build uploaded |
+| Reversible | yes — `main` can be reverted, and nothing external has happened | **no** — a build number is spent and the upload cannot be recalled |
+| Who sees it | nobody | everyone in `Solo`, automatically (§1.6) |
+| Cost | none | none in money; one unrecallable artefact in Apple's account |
+
+So merge-only is a safe, reversible step that makes the candidate the release
+SHA and leaves every Apple-facing decision open. There is no deadline pressure
+to pair it with an upload.
+
+## 4.3 What can trigger an upload, so it can't happen by accident
+
+The `testflight` job runs on **exactly two** triggers:
+
+| Trigger | Notes |
+|---|---|
+| `workflow_dispatch` with `job: testflight` | the deliberate path. The dispatch default is `compile-check`, so a stray click ships nothing |
+| **a push of a tag matching `ios-v*`** | ⚠️ this one needs saying out loud: pushing such a tag runs `preflight` **and** `testflight` with no further confirmation. Do not tag the merge commit unless an upload is intended |
+
+Nothing else can. A merge to `main`, a branch push, or a PR triggers
+`compile-check` only, and on PRs it runs without secrets.
+
+## 4.4 Effects that follow automatically once the upload is approved
+
+Neither of these needs a further action, and neither is undoable:
+
+1. **Signing.** `-allowProvisioningUpdates` lets Xcode create and download a
+   distribution certificate and an App Store provisioning profile in the Apple
+   Developer account if usable ones aren't already there (§3.5).
+2. **Distribution.** Apple offers the processed build to every internal group
+   with automatic distribution on. As of 2026-09-09 that is `Solo`, one
+   member, the author — **unverified for today**, which is why §3.3 step 3b
+   reads the group *before* the upload rather than after (§1.6).
+
+## 4.5 What this proposal is not
+
+It is not a claim that the build works on a phone. No device evidence exists
+(§2.2). It is not a request to recruit anyone — that is Approval B, after the
+eight checks in §3.4. And it is not a version bump, a merge or a dispatch: all
+three remain unperformed.
+
+---
+
+## Who does what
+
+| Step | Who |
+|---|---|
+| Implementation, tests, this ledger, the offline scorecard | Claude |
+| Code review, approval of the work | Codex |
+| Deciding to merge, bump, dispatch, recruit | **Braxton** |
+| Device validation, recruiting, tallying real exports | **Braxton** |
+
+This describes who has been doing each step, not a rule about who may. The
+mechanics of a merge or a dispatch can be carried out by anyone Braxton
+authorises — on 2026-09-26 he authorised Claude to merge PR #23 and upload to
+TestFlight. The decisions stay his; what a decision needs before it is taken
+is §3 and §4.

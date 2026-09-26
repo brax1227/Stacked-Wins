@@ -1,0 +1,67 @@
+{
+  "trialStart": "2026-09-20",
+  "asOf": "2026-11-01",
+  "participants": {
+    "p01": {
+      "exports": [
+        "synthetic-p01-first.json",
+        "synthetic-p01-second.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p02": {
+      "exports": [
+        "synthetic-p02-first.json",
+        "synthetic-p02-second.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p03": {
+      "exports": [
+        "synthetic-p03-first.json",
+        "synthetic-p03-second.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p04": {
+      "exports": [
+        "synthetic-p04-first.json",
+        "synthetic-p04-second.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p05": {
+      "exports": [
+        "synthetic-p05-first.json",
+        "synthetic-p05-second.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p06": {
+      "exports": [
+        "synthetic-p06.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    },
+    "p07": {
+      "exports": [
+        "synthetic-p07-copy.json"
+      ],
+      "reportedHelp": "yes",
+      "confirmedBy": "operator",
+      "confirmedOn": "2026-10-20"
+    }
+  }
+}
