@@ -6,9 +6,9 @@
 # container that already has the toolchain it does nothing but export PATH.
 #
 # COST, because it is not small: the toolchain is a 784 MB download that
-# unpacks to about 2.5 GB, and on a cold container this takes a few minutes
-# during which the session does not start. Every session after that in the same
-# container is instant. Nothing here is needed for CI -- the macOS runner has
+# unpacks to about 2.5 GB of disk. Measured on a cold container: 25 seconds,
+# during which the session does not start -- slower on a slower link. Every
+# session after that in the same container is instant. Nothing here is needed for CI -- the macOS runner has
 # its own Xcode -- and nothing here ships in the app.
 set -euo pipefail
 
@@ -34,7 +34,7 @@ if [ ! -x "$HOME_DIR/usr/bin/swiftc" ]; then
   fi
 
   URL="https://download.swift.org/${SWIFT_RELEASE,,}/${SWIFT_BUILD//./}/$SWIFT_RELEASE/$NAME.tar.gz"
-  echo "session-start: installing $NAME (784 MB, a few minutes, once per container)"
+  echo "session-start: installing $NAME (784 MB download, once per container)"
   mkdir -p "$ROOT"
   TARBALL=$(mktemp "${TMPDIR:-/tmp}/swift-XXXXXX.tar.gz")
   trap 'rm -f "$TARBALL"' EXIT

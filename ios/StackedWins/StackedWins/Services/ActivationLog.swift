@@ -213,10 +213,19 @@ actor ActivationLog {
     /// The whole file, pretty-printed, for a person to read before they decide
     /// to share it. Being readable is the privacy promise: you can see there
     /// is nothing in here but dates and numbers.
+    ///
+    /// Empty when nothing has been recorded -- a fresh install, or straight
+    /// after a delete. `load()` hands back a blank Record rather than nil, and
+    /// exporting that produced a JSON skeleton, so the Trial data screen showed
+    /// an object where it should say "Nothing recorded yet." and kept Copy and
+    /// Delete enabled with nothing to copy or delete. On the one screen whose
+    /// job is to show the data is gone, that read as "still something here".
     func exportJSON() -> String {
+        let current = load()
+        guard current.firstOpen != nil || !current.days.isEmpty else { return "" }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(load()),
+        guard let data = try? encoder.encode(current),
               let text = String(data: data, encoding: .utf8)
         else { return "{}" }
         return text

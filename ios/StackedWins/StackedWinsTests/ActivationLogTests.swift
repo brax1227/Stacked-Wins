@@ -488,20 +488,12 @@ final class ActivationLogTests: XCTestCase {
             XCTAssertEqual(report.startEvidence, .nothingYet, "\(label): nothing to show")
             XCTAssertEqual(report.activeDays, 0, "\(label): no days")
         }
-        // What is left to copy is an empty skeleton, not silence: `load()`
-        // hands back a fresh Record when there is no file, so the export
-        // reads `{"days": {}, "environment": ..., "source": ..., "version": 2}`.
-        // Pinned as-is rather than changed under a freeze. It carries no
-        // counts and no dates -- which is the part that matters -- but it is
-        // also why the Trial data screen shows a JSON object after a delete
-        // instead of "Nothing recorded yet." Flagged for a product decision,
-        // not fixed here.
+        // Nothing left to copy, so the screen can say "Nothing recorded yet."
+        // and disable Copy and Delete. An earlier version exported an empty
+        // JSON skeleton here, which read as "still something here" on the
+        // one screen whose job is to show there isn't.
         let exported = await log.exportJSON()
-        XCTAssertFalse(exported.contains("firstOpen"), "no first-open date survives the delete")
-        XCTAssertNil(exported.range(of: #"\d{4}-\d{2}-\d{2}"#, options: .regularExpression),
-                     "no dates at all survive the delete")
-        XCTAssertNil(exported.range(of: #"":\s*[1-9]"#, options: .regularExpression),
-                     "and no non-zero count survives it")
+        XCTAssertEqual(exported, "", "nothing left to copy or send")
 
         // 3. The stack is exactly where it was.
         XCTAssertTrue(FileManager.default.fileExists(atPath: stackURL.path),
@@ -511,6 +503,19 @@ final class ActivationLogTests: XCTestCase {
         let stackEmpty = try await reopenedStack.isEmpty()
         XCTAssertEqual(stackAfter, stackBefore, "the card on top is the same card")
         XCTAssertFalse(stackEmpty, "and the stack still has things in it")
+    }
+
+    /// A fresh install has nothing to show either. Same screen, same rule.
+    func testAFreshInstallHasNothingToExport() async throws {
+        let log = makeLog()
+        let exported = await log.exportJSON()
+        XCTAssertEqual(exported, "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path),
+                       "and reading it wrote nothing")
+
+        await log.recordOpen()
+        let afterOpen = await log.exportJSON()
+        XCTAssertFalse(afterOpen.isEmpty, "one open is something to show")
     }
 
     /// Deleting twice is not an error, and deleting before anything was ever
